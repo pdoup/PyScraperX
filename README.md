@@ -88,7 +88,7 @@ Once the service is running, access the UI by navigating to **http://localhost:8
 
 By using this framework, you acknowledge and agree that you are solely responsible for complying with all applicable laws, regulations, website terms of service, and any other relevant policies when performing web scraping activities.
 
-The creators and contributors of PyScraperX are not responsible for any misuse or illegal activities conducted by users of this software. It is your responsibility to ensure that your scraping activities are lawful and ethical. Always review a website's robots.txt file and terms of service before scraping.
+The creators and contributors of PyScraperX are not responsible for any misuse or illegal activities conducted by users of this software. It is your responsibility to ensure that your scraping activities are lawful and ethical. Always review a website's `robots.txt` file and terms of service before scraping.
 
 #### Use PyScraperX responsibly and at your own risk.
 
