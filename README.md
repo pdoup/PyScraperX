@@ -13,13 +13,13 @@ PyScraperX is a resilient, asynchronous web scraping framework built in Python. 
 
 ## Dashboard Preview
 
-The Admin UI provides a comprehensive, real-time view of all scraping jobs/
+The Admin UI provides a comprehensive, real-time view of all scraping jobs:
 
-*(Image)*`![Dashboard Overview](image_url)`
+![Dashboard Overview](assets/dashboard.png)
 
-Drill down into individual jobs to see run history and error messages
+Drill down into individual jobs to see run history and error messages:
 
-*(Image Details Pane)*`![Dashboard Overview](image_url)`
+![Job Details](assets/details_view.png)
 
 ## Core Architecture
 
