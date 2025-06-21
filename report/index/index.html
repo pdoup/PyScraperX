@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scraper Admin Panel - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Light Theme */
+            --bg-primary: #f9fafb;
+            --bg-secondary: #f3f4f6;
+            --bg-tertiary: #e5e7eb;
+            --bg-glass: rgba(243, 244, 246, 0.5);
+            --border-color: #d1d5db;
+            --text-primary: #111827;
+            --text-secondary: #4b5563;
+            --text-tertiary: #6b7280;
+            --accent-primary: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.5);
+            --input-bg: #ffffff;
+            --status-permanently-failed-glow: rgba(239, 68, 68, 0.7);
+        }
+
+        html.dark {
+            /* Dark Theme */
+            --bg-primary: #111827;
+            --bg-secondary: #1f2937;
+            --bg-tertiary: #374151;
+            --bg-glass: rgba(31, 41, 55, 0.5);
+            --border-color: #374151;
+            --text-primary: #f9fafb;
+            --text-secondary: #9ca3af;
+            --text-tertiary: #6b7280;
+            --input-bg: rgba(55, 65, 81, 0.5);
+            --status-permanently-failed-glow: rgba(239, 68, 68, 0.7);
+        }
+
+        :root {
+            --status-success: #10b981;
+            --status-total: rgb(125, 125, 218);
+            --status-success-bg: rgba(16, 185, 129, 0.1);
+            --status-failed: #ef4444;
+            --status-failed-bg: rgba(239, 68, 68, 0.1);
+            --status-permanently-failed: #7f1d1d;
+            --status-permanently-failed-bg: rgba(127, 29, 29, 0.1);
+            --status-running: #3b82f6;
+            --status-running-bg: rgba(59, 130, 246, 0.1);
+            --status-scheduled: #f59e0b;
+            --status-scheduled-bg: rgba(245, 158, 11, 0.1);
+            --status-initialized: #eab308;
+            --status-initialized-bg: rgba(234, 179, 8, 0.1);
+            --status-idle: #6b7280;
+            --status-idle-bg: rgba(107, 114, 128, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .glass-effect {
+            background: var(--bg-glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4b5563;
+        }
+
+        /* Animation for table rows appearing */
+        @keyframes fadeInSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-in-slide-up {
+            animation: fadeInSlideUp 0.5s ease-out forwards;
+        }
+
+        /* Pulse animation for 'Running' status BORDER */
+        .status-pill.running {
+            animation: pulse-border 2s infinite;
+        }
+
+        @keyframes pulse-border {
+            0% {
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+            }
+
+            70% {
+                box-shadow: 0 0 0 4px rgba(59, 130, 246, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+            }
+        }
+
+        .status-pill.permanently-failed {
+            border: 1px solid var(--status-permanently-failed);
+            animation: pulse-permanently-failed-border 2s infinite;
+        }
+
+        @keyframes pulse-permanently-failed-border {
+            0% {
+                box-shadow: 0 0 0 0 var(--status-permanently-failed-glow);
+            }
+            70% {
+                box-shadow: 0 0 0 4px rgba(0, 0, 0, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+            }
+        }
+
+        /* Pulse animation for 'Running' status DOT */
+        .pulsating-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: var(--status-running);
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse-dot 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse-dot {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .job-status-pulse {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse-glow 1.5s ease-out infinite;
+        }
+
+        .job-status-pulse.green {
+            background-color: var(--status-success);
+            --pulse-glow-color: rgba(16, 185, 129, 0.7);
+        }
+
+        .job-status-pulse.red {
+            background-color: var(--status-failed);
+            --pulse-glow-color: rgba(239, 68, 68, 0.7);
+        }
+
+        @keyframes pulse-glow {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 var(--pulse-glow-color);
+            }
+
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 6px rgba(0, 0, 0, 0);
+            }
+
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+            }
+        }
+
+        .sidebar-item .tooltip {
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.2s, visibility 0.2s;
+        }
+
+        .sidebar-item:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .expand-icon {
+            display: inline-block;
+            transition: transform 0.15s ease-in-out;
+        }
+
+        tr.row-expanded .expand-icon {
+            transform: rotate(90deg);
+        }
+
+        tbody tr.job-row:hover {
+            background: linear-gradient(to right, rgba(59, 130, 246, 0.1), transparent, transparent);
+        }
+
+        .details-row {
+            display: none;
+        }
+
+        .details-row.visible {
+            display: table-row;
+        }
+
+        .fade-out {
+            opacity: 0;
+            transition: opacity 0.3s ease-out;
+        }
+
+        .checkmark-fade-in {
+            opacity: 0;
+            animation: fadeIn 0.3s forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        button:disabled {
+            cursor: not-allowed !important;
+            opacity: 0.6;
+            filter: grayscale(10%);
+            pointer-events: all;
+        }
+
+        /* Tooltip for disabled buttons */
+        button[disabled][data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--text-primary);
+            color: var(--bg-primary);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            z-index: 20;
+            opacity: 0.9;
+            pointer-events: none;
+        }
+
+        button[disabled][data-tooltip]:hover::before {
+            content: '';
+            position: absolute;
+            top: calc(100% - 4px);
+            left: 50%;
+            transform: translateX(-50%) rotate(45deg);
+            width: 10px;
+            height: 10px;
+            background-color: var(--text-primary);
+            z-index: 19;
+            pointer-events: none;
+        }
+
+        #theme-toggle .moon-icon {
+            display: none;
+        }
+
+        #theme-toggle .sun-icon {
+            display: block;
+        }
+
+        html.dark #theme-toggle .moon-icon {
+            display: block;
+        }
+
+        html.dark #theme-toggle .sun-icon {
+            display: none;
+        }
+    </style>
+</head>
+
+<body class="flex min-h-screen">
+
+    <aside
+        class="w-20 bg-[var(--bg-primary)] border-r border-[var(--border-color)] flex flex-col items-center py-6 space-y-8">
+        <div class="text-blue-500">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+        </div>
+        <nav class="flex flex-col items-center space-y-6">
+            <a href="#" class="sidebar-item relative p-3 bg-blue-500/20 text-blue-500 dark:text-blue-400 rounded-lg">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16">
+                    </path>
+                </svg>
+                <span
+                    class="tooltip absolute left-full ml-4 px-2 py-1 text-sm bg-gray-700 text-white rounded-md whitespace-nowrap">Dashboard</span>
+            </a>
+            <a href="#"
+                class="sidebar-item relative p-3 text-gray-500 hover:bg-gray-700/5 hover:dark:bg-gray-700/50 hover:text-gray-800 dark:hover:text-white rounded-lg transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
+                    </path>
+                </svg>
+                <span
+                    class="tooltip absolute left-full ml-4 px-2 py-1 text-sm bg-gray-700 text-white rounded-md whitespace-nowrap">Analytics</span>
+            </a>
+            <a href="#"
+                class="sidebar-item relative p-3 text-gray-500 hover:bg-gray-700/5 hover:dark:bg-gray-700/50 hover:text-gray-800 dark:hover:text-white rounded-lg transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.096 2.572-1.065z">
+                    </path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+                <span
+                    class="tooltip absolute left-full ml-4 px-2 py-1 text-sm bg-gray-700 text-white rounded-md whitespace-nowrap">Settings</span>
+            </a>
+        </nav>
+    </aside>
+
+    <div class="flex-1 flex flex-col">
+        <header class="sticky top-0 z-10 glass-effect flex items-center justify-between h-20 px-8">
+            <div>
+                <h1 class="text-2xl font-bold text-primary">Dashboard</h1>
+                <p class="text-sm text-secondary">
+                    Last Updated: <span id="last-updated" class="font-semibold text-tertiary">N/A</span>
+                </p>
+            </div>
+            <div class="flex items-center gap-4">
+                <button id="restart-all-button"
+                    class="hidden flex items-center gap-2 p-2 rounded-lg border border-border-color bg-input-bg shadow-sm text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-colors duration-150">
+                    <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                        stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                        </path>
+                    </svg>
+                    <span class="text-sm font-semibold">Restart All</span>
+                </button>
+                <div id="job-status-tracker"
+                    class="flex items-center p-2 rounded-lg border border-border-color bg-input-bg shadow-sm">
+                    <div id="job-status-dot" class="job-status-pulse green"></div>
+                    <span id="job-status-text" class="text-sm font-semibold text-secondary ml-2 whitespace-nowrap">0/0
+                        Running</span>
+                </div>
+                <div class="relative">
+                    <input type="text" placeholder="Search tasks..."
+                        class="w-64 bg-[var(--input-bg)] border-[var(--border-color)] rounded-lg py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500 text-[var(--text-primary)]">
+                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+                <button id="theme-toggle" type="button"
+                    class="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-400">
+                    <svg class="sun-icon w-6 h-6" fill="currentColor" viewBox="0 0 20 20"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.121-3.536a1 1 0 011.414 0l.707.707a1 1 0 01-1.414 1.414l-.707-.707a1 1 0 010-1.414zM4 10a1 1 0 01-1-1H2a1 1 0 110-2h1a1 1 0 011 1zm1.172 4.243a1 1 0 01.707-.293h.001a1 1 0 110 2h-.001a1 1 0 01-.707-.293zm-1.414-2.829a1 1 0 00-1.414 1.414l.707.707a1 1 0 001.414-1.414l-.707-.707zM10 18a1 1 0 01-1-1v-1a1 1 0 112 0v1a1 1 0 01-1 1z"
+                            fill-rule="evenodd" clip-rule="evenodd"></path>
+                    </svg>
+                    <svg class="moon-icon w-6 h-6" fill="currentColor" viewBox="0 0 20 20"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
+                    </svg>
+                </button>
+                <div class="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full bg-cover"
+                    style="background-image: url('https://placehold.co/100x100/e5e7eb/4b5563?text=U')"></div>
+            </div>
+
+        </header>
+
+        <main class="flex-1 p-8">
+            <div
+                class="mb-6 p-4 bg-gray-500/10 dark:bg-gray-800/40 rounded-xl border border-border-color/50 flex flex-wrap items-center gap-4">
+                <div class="flex-grow min-w-[200px]">
+                    <label for="filter-text" class="text-sm font-medium text-secondary sr-only">Filter by name</label>
+                    <input type="text" id="filter-text" placeholder="Filter by name..."
+                        class="w-full p-2 bg-[var(--input-bg)] border-[var(--border-color)] rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-[var(--text-primary)]">
+                </div>
+                <div class="min-w-[150px]">
+                    <label for="filter-status" class="text-sm font-medium text-secondary sr-only">Filter by
+                        status</label>
+                    <select id="filter-status"
+                        class="w-full p-2 bg-[var(--input-bg)] border-[var(--border-color)] rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-[var(--text-primary)]">
+                        <option value="all">All Statuses</option>
+                        <option value="Running">Running</option>
+                        <option value="Success">Success</option>
+                        <option value="Failed">Failed</option>
+                        <option value="Permanently Failed">Permanently Failed</option>
+                        <option value="Scheduled">Scheduled</option>
+                        <option value="Initialized">Initialized</option>
+                        <option value="Idle">Idle</option>
+                    </select>
+                </div>
+                <div class="min-w-[150px]">
+                    <label for="sort-by" class="text-sm font-medium text-secondary sr-only">Sort by</label>
+                    <select id="sort-by"
+                        class="w-full p-2 bg-[var(--input-bg)] border-[var(--border-color)] rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-[var(--text-primary)]">
+                        <option value="name_asc">Sort by Name (A-Z)</option>
+                        <option value="name_desc">Sort by Name (Z-A)</option>
+                        <option value="last_run_desc">Sort by Last Run (Newest)</option>
+                        <option value="last_run_asc">Sort by Last Run (Oldest)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="bg-gray-500/10 dark:bg-gray-800/40 rounded-xl border border-border-color/50 overflow-hidden">
+                <table class="min-w-full">
+                    <thead class="border-b border-border-color">
+                        <tr>
+                            <th
+                                class="px-6 py-4 text-left text-xs font-semibold text-secondary uppercase tracking-wider w-16">
+                                #</th>
+                            <th
+                                class="px-6 py-4 text-left text-xs font-semibold text-secondary uppercase tracking-wider">
+                                Job Name</th>
+                            <th
+                                class="px-6 py-4 text-center text-xs font-semibold text-secondary uppercase tracking-wider">
+                                Status</th>
+                            <th
+                                class="px-6 py-4 text-left text-xs font-semibold text-secondary uppercase tracking-wider">
+                                Last Run</th>
+                            <th
+                                class="px-6 py-4 text-left text-xs font-semibold text-secondary uppercase tracking-wider">
+                                Duration</th>
+                            <th class="relative px-6 py-4 w-12"><span class="sr-only">Expand</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="jobs-table-body">
+                        <tr>
+                            <td colspan="6" class="text-center p-12">
+                                <div id="loading-message" class="text-secondary">Loading job statuses...</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+    <script>
+        // DOM Elements
+        const tableBody = document.getElementById('jobs-table-body');
+        const lastUpdatedSpan = document.getElementById('last-updated');
+        const filterTextInput = document.getElementById('filter-text');
+        const filterStatusSelect = document.getElementById('filter-status');
+        const sortBySelect = document.getElementById('sort-by');
+        const themeToggleButton = document.getElementById('theme-toggle');
+        const jobStatusDot = document.getElementById('job-status-dot');
+        const jobStatusText = document.getElementById('job-status-text');
+        const restartAllButton = document.getElementById('restart-all-button');
+
+        // State variables
+        let jobsData = {};
+        let expandedJobIds = new Set();
+
+        function formatTimestamp(isoString) {
+            if (!isoString) return 'N/A';
+            try {
+                const date = new Date(isoString);
+                if (isNaN(date.getTime())) return 'Invalid Date';
+                return date.toLocaleString('en-US', {
+                    month: 'short', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+                });
+            } catch (e) {
+                return 'Invalid Date';
+            }
+        }
+
+        function toggleDetails(mainRow) {
+            const jobId = mainRow.dataset.jobId; // Use job ID
+            const detailsRow = mainRow.nextElementSibling;
+
+            if (!detailsRow || !detailsRow.classList.contains('details-row')) return;
+
+            mainRow.classList.toggle('row-expanded');
+            detailsRow.classList.toggle('visible');
+
+            if (mainRow.classList.contains('row-expanded')) {
+                expandedJobIds.add(jobId);
+            } else {
+                expandedJobIds.delete(jobId);
+            }
+        }
+
+        function updateHeaderButtons() {
+            const selectedStatus = filterStatusSelect.value;
+            if (selectedStatus === 'Permanently Failed') {
+                restartAllButton.classList.remove('hidden');
+            } else {
+                restartAllButton.classList.add('hidden');
+            }
+        }
+
+        function renderTable() {
+            const filterText = filterTextInput.value.toLowerCase();
+            const filterStatus = filterStatusSelect.value;
+            const sortBy = sortBySelect.value;
+
+            let jobsArray = Object.values(jobsData);
+
+            // Filter
+            if (filterText) jobsArray = jobsArray.filter(job => job.name.toLowerCase().includes(filterText));
+            if (filterStatus !== 'all') jobsArray = jobsArray.filter(job => job.status === filterStatus);
+
+            // Sort
+            jobsArray.sort((a, b) => {
+                switch (sortBy) {
+                    case 'name_asc': return a.name.localeCompare(b.name);
+                    case 'name_desc': return b.name.localeCompare(a.name);
+                    case 'last_run_desc': return new Date(b.last_run) - new Date(a.last_run);
+                    case 'last_run_asc': return new Date(a.last_run) - new Date(b.last_run);
+                    default: return 0;
+                }
+            });
+
+            tableBody.innerHTML = '';
+
+            if (jobsArray.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="6" class="text-center p-12 text-secondary">No jobs match the current filters.</td></tr>`;
+                restartAllButton.disabled = true;
+                restartAllButton.dataset.tooltip = "No jobs to display, or no jobs match filters.";
+            } else {
+                const hasPermanentlyFailed = jobsArray.some(job => job.status === 'Permanently Failed');
+                restartAllButton.disabled = !hasPermanentlyFailed;
+                if (!hasPermanentlyFailed) {
+                    restartAllButton.dataset.tooltip = "No permanently failed jobs visible.";
+                } else {
+                    delete restartAllButton.dataset.tooltip; // Remove tooltip if enabled
+                }
+            }
+
+            jobsArray.forEach((job, index) => {
+                const status = job.status || 'Idle';
+                const isExpanded = expandedJobIds.has(job.id);
+
+                const mainRow = document.createElement('tr');
+                mainRow.className = `job-row border-b border-gray-200 dark:border-gray-800 cursor-pointer ${isExpanded ? 'row-expanded' : ''}`;
+                mainRow.dataset.jobId = job.id;
+
+                mainRow.innerHTML = `
+                <td class="px-6 py-4 text-sm font-medium text-tertiary">${index + 1}</td>
+                <td class="px-6 py-4 text-sm font-semibold text-primary">${job.name || 'Unnamed Job'}</td>
+                <td class="px-6 py-4 text-center">
+                    <span class="status-pill ${status.trim().replace(/\s+/g, '-').toLowerCase()} inline-flex items-center justify-center px-3 py-1 text-xs font-bold rounded-full min-w-[90px]" style="background-color: var(--status-${status.trim().replace(/\s+/g, '-').toLowerCase()}-bg); color: var(--status-${status.trim().replace(/\s+/g, '-').toLowerCase()});">
+                        ${status === 'Running' ? '<span class="pulsating-dot"></span>' : ''}
+                        ${status}
+                    </span>
+                </td>
+                <td class="px-6 py-4 text-sm text-secondary">${formatTimestamp(job.last_run)}</td>
+                <td class="px-6 py-4 text-sm text-secondary">${job.duration_ms !== null ? job.duration_ms.toFixed(2) + ' ms' : 'N/A'}</td>
+                <td class="px-6 py-4 text-right">
+                    <span class="text-tertiary expand-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                        </svg>
+                    </span>
+                </td>
+            `;
+
+                const detailsRow = document.createElement('tr');
+                detailsRow.className = `details-row ${isExpanded ? 'visible' : ''}`;
+
+                detailsRow.innerHTML = `
+                <td colspan="6" class="p-0">
+                    <div class="bg-black/5 dark:bg-gray-900/50 p-6 flex justify-between items-start gap-6">
+                        <div class="flex-grow">
+                            <dl class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4">
+                                <div class="flex items-center gap-2">
+                                <dt class="text-sm font-medium text-tertiary">Next Run:</dt>
+                                <dd class="text-sm text-secondary font-semibold">${formatTimestamp(job.next_run)}</dd></div>
+                                <div class="flex items-center gap-2"><dt class="text-sm font-medium text-tertiary">Total Runs:</dt><dd class="text-sm text-secondary font-semibold" style="color: var(--status-total)">${job.total_runs}</dd></div>
+                                <div class="flex items-center gap-2"><dt class="text-sm font-medium text-tertiary">Successful:</dt><dd class="text-sm font-semibold" style="color: var(--status-success)">${job.success_count}</dd></div>
+                                <div class="flex items-center gap-2"><dt class="text-sm font-medium text-tertiary">Failed:</dt><dd class="text-sm font-semibold" style="color: var(--status-failed)">${job.fail_count}</dd></div>
+                            </dl>
+                            ${job.error_message ? `
+                                <div class="mt-4">
+                                    <dt class="text-sm font-medium text-tertiary">Last Error Message</dt>
+                                    <dd class="mt-1 text-sm p-3 rounded-md font-mono whitespace-pre-wrap" style="background-color: var(--status-failed-bg); color: var(--status-failed);">${job.error_message}</dd>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="flex-shrink-0">
+                            ${(status === 'Failed' || status === 'Permanently Failed') ? `
+                                <button class="restart-button flex items-center gap-1.5 text-sm font-medium text-secondary border border-border-color py-1 px-3 rounded-md hover:bg-gray-500/10 hover:text-primary transition-colors duration-150" data-job-id="${job.id}">
+                                    <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4.5 12a7.5 7.5 0 0112.933-5.303l1.036-1.036a.75.75 0 011.28.53v4.5a.75.75 0 01-.75.75h-4.5a.75.75 0 01-.53-1.28l1.004-1.004A6 6 0 006 12a.75.75 0 01-1.5 0zm15 0a.75.75 0 011.5 0 7.5 7.5 0 01-12.933 5.303l-1.036 1.036a.75.75 0 01-1.28-.53v-4.5a.75.75 0 01.75-.75h4.5a.75.75 0 01.53 1.28l-1.004 1.004A6 6 0 0018 12z" clip-rule="evenodd" /></svg>
+                                    <span>Restart</span>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </td>
+            `;
+
+                mainRow.addEventListener('click', () => toggleDetails(mainRow));
+                tableBody.appendChild(mainRow);
+                tableBody.appendChild(detailsRow);
+
+                const restartButton = detailsRow.querySelector('.restart-button');
+                if (restartButton) {
+                    restartButton.addEventListener('click', (event) => {
+                        event.stopPropagation();
+
+                        const jobIdToRestart = event.currentTarget.dataset.jobId;
+
+                        const button = event.currentTarget;
+                        button.disabled = true;
+                        const originalContent = button.innerHTML;
+                        button.innerHTML = `
+                        <svg class="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        <span>Sending...</span>
+                    `;
+
+                        fetch('/api/jobs/restart', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ "jobId": jobIdToRestart })
+                        })
+                            .then(res => {
+                                if (!res.ok) {
+                                    return res.json().then(err => { throw new Error(err.message || 'Restart request failed') });
+                                }
+                                return res.json();
+                            })
+                            .then(data => {
+                                updateDashboard();
+                            })
+                            .catch(err => {
+                                console.error('Restart failed:', err);
+                                button.disabled = false;
+                                button.innerHTML = originalContent;
+                            });
+                    });
+                }
+            });
+        }
+
+        function updateJobStatusTracker() {
+            const jobsArray = Object.values(jobsData);
+            const totalJobs = jobsArray.length;
+
+            if (totalJobs === 0) {
+                jobStatusText.textContent = `0/0 Running`;
+                jobStatusDot.className = 'job-status-pulse green';
+                return;
+            }
+
+            const permFailedJobs = jobsArray.filter(job => job.status === 'Permanently Failed').length;
+            const activeJobs = totalJobs - permFailedJobs;
+            const failedPercentage = totalJobs > 0 ? (permFailedJobs / totalJobs) : 0;
+
+            jobStatusText.textContent = `${activeJobs}/${totalJobs} Running`;
+
+            if (failedPercentage > 0.5) {
+                jobStatusDot.className = 'job-status-pulse red';
+            } else {
+                jobStatusDot.className = 'job-status-pulse green';
+            }
+        }
+
+        function updateDashboard() {
+            fetch('/api/jobs')
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    jobsData = data;
+                    renderTable();
+                    updateJobStatusTracker();
+                    lastUpdatedSpan.textContent = formatTimestamp(new Date().toISOString());
+                    const allJobsArray = Object.values(jobsData);
+                    const hasPermanentlyFailedOverall = allJobsArray.some(job => job.status === 'Permanently Failed');
+                    restartAllButton.disabled = !hasPermanentlyFailedOverall;
+                    if (!hasPermanentlyFailedOverall) {
+                        restartAllButton.dataset.tooltip = "No permanently failed jobs to restart.";
+                    } else {
+                        delete restartAllButton.dataset.tooltip;
+                    }
+                })
+                .catch(error => {
+                    console.error('Failed to fetch job data:', error);
+                    tableBody.innerHTML = `<tr><td colspan="6" class="text-center p-12 text-red-400 font-semibold">Error loading data: ${error.message}. Please check console.</td></tr>`;
+                    restartAllButton.disabled = true;
+                    restartAllButton.dataset.tooltip = `Error loading data: ${error.message}`;
+                });
+        }
+
+        function applyTheme(theme) {
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
+
+        themeToggleButton.addEventListener('click', () => {
+            const isDark = document.documentElement.classList.contains('dark');
+            localStorage.setItem('theme', isDark ? 'light' : 'dark');
+            applyTheme(isDark ? 'light' : 'dark');
+        });
+
+        restartAllButton.addEventListener('click', () => {
+            console.log("RESTART ALL triggered for permanently failed jobs.");
+            const button = restartAllButton;
+            button.disabled = true;
+            const originalContent = button.innerHTML;
+
+            button.innerHTML = `
+        <svg class="w-5 h-5 animate-spin spinner-element" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        <span class="text-element text-sm font-semibold">Restarting...</span>
+    `;
+
+            fetch('/api/jobs/restart_all', {
+                method: 'POST'
+            })
+                .then(res => {
+                    if (!res.ok) {
+                        return res.json().then(err => { throw new Error(err.message || 'Request to restart all failed.') });
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    console.log('Restart all successful:', data);
+
+                    const spinner = button.querySelector('.spinner-element');
+                    const text = button.querySelector('.text-element');
+
+                    if (spinner) spinner.classList.add('fade-out');
+                    if (text) text.classList.add('fade-out');
+
+                    setTimeout(() => {
+                        button.innerHTML = '';
+                        const checkmarkSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                        checkmarkSvg.setAttribute("class", "w-5 h-5 text-green-500 checkmark-fade-in");
+                        checkmarkSvg.setAttribute("fill", "none");
+                        checkmarkSvg.setAttribute("stroke", "currentColor");
+                        checkmarkSvg.setAttribute("viewBox", "0 0 24 24");
+                        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                        path.setAttribute("stroke-linecap", "round");
+                        path.setAttribute("stroke-linejoin", "round");
+                        path.setAttribute("stroke-width", "2");
+                        path.setAttribute("d", "M5 13l4 4L19 7");
+                        checkmarkSvg.appendChild(path);
+
+                        button.appendChild(checkmarkSvg);
+                        button.disabled = false;
+                        setTimeout(() => {
+                            button.innerHTML = originalContent;
+                            button.disabled = false;
+                            updateDashboard();
+                        }, 800);
+                    }, 350);
+                })
+                .catch(err => {
+                    console.error('Restart all failed:', err);
+                    button.disabled = false;
+                    button.innerHTML = originalContent;
+                });
+        });
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const updateInterval = {{ update_interval }};
+            filterTextInput.addEventListener('input', renderTable);
+            filterStatusSelect.addEventListener('change', () => {
+                renderTable();
+                updateHeaderButtons();
+            });
+            sortBySelect.addEventListener('change', renderTable);
+
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (savedTheme) {
+                applyTheme(savedTheme);
+            } else {
+                applyTheme(prefersDark ? 'dark' : 'light');
+            }
+
+            updateDashboard();
+            updateHeaderButtons();
+            setInterval(updateDashboard, updateInterval);
+        });
+    </script>
+</body>
+
+</html>
