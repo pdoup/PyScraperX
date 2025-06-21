@@ -23,7 +23,7 @@ Drill down into individual jobs to see run history and error messages:
 
 ## Core Architecture
 
-Two thread model
+Two thread model:
 
 1. **Main Thread**:
     * Runs the **FastAPI server** ([`report/server.py`](report/server.py)) for the frontend.
