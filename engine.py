@@ -27,7 +27,6 @@ class ScraperEngine:
     async def initialize_http_session(self):
         """
         Initializes the aiohttp.ClientSession asynchronously.
-        This must be called AFTER the asyncio event loop has started.
         """
         if self.http_session is None or self.http_session.closed:
             self.http_session = aiohttp.ClientSession(
@@ -47,7 +46,6 @@ class ScraperEngine:
     def _initialize_scrapers(self):
         """
         Initializes WebScraper instances for each URL in the config.
-        This method now relies on self.http_session being already initialized.
         """
         if self.http_session is None:
             raise RuntimeError(
@@ -99,7 +97,6 @@ class ScraperEngine:
     async def close(self):
         """
         Closes the shared aiohttp.ClientSession gracefully.
-        This method should be called during application shutdown.
         """
         if self.http_session and not self.http_session.closed:
             await self.http_session.close()
