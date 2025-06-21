@@ -1,4 +1,3 @@
-# Define a Pydantic model for the request body to ensure data is valid
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
