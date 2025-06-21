@@ -1,4 +1,3 @@
-# state_manager.py
 import asyncio
 import datetime
 import threading
