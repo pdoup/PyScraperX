@@ -111,9 +111,15 @@ async def _close_engine_session():
 
 
 def stop_async_loop():
-    """Stops the asyncio event loop gracefully."""
     global _loop
     if _loop and _loop.is_running():
-        asyncio.run_coroutine_threadsafe(_close_engine_session(), _loop)
-        _loop.call_soon_threadsafe(_loop.stop)
-        logger.info("Asyncio event loop stop requested.")
+        try:
+            asyncio.run_coroutine_threadsafe(_close_engine_session(), _loop).result(
+                timeout=5.0
+            )
+            logger.info("ScraperEngine session closed.")
+        except Exception as e:
+            logger.warning(f"Error closing ScraperEngine session: {e}", exc_info=True)
+        finally:
+            _loop.call_soon_threadsafe(_loop.stop)
+            logger.info("Asyncio event loop stop requested.")
