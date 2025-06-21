@@ -4,12 +4,12 @@ PyScraperX is a resilient, asynchronous web scraping framework built in Python. 
 
 ## Core Features
 
-* **Async Execution**: Leverages `asyncio` and `aiohttp` for high-performance, non-blocking net I/O, enabling scraping hundrends of endpoints concurrently.
+* **Async Execution**: Leverages `asyncio` and `aiohttp` for high-performance, non-blocking net I/O, enabling scraping hundreds of endpoints concurrently.
 * **Background Threads**: Core scrape ops run in a background thread, ensuring that the UI and the scheduler remain responsive
 * **Real-time Control Panel UI**: Built with FastAPI, it provides a live view of all scraping jobs and allows the admin to monitor job statuses, last/next runtimes per job and performance metrics.
 * **Job Control & Retry Logic**: The admin has the ability to manually resubmit failed jobs or filter by permanently deleted status and submit a batch restart.
 * **Configuration Driven**: Fine grained control over run intervals, target URL paths and retry policies via `.env.local` file.
-* **Mock API included**: Pre-built mock API inside the [`api/`](api/) directory makes easy to test the overall functionality of the framework out-of-the-box
+* **Mock API included**: Pre-built mock API inside the [`api/`](api/) directory makes it easy to test the overall functionality of the framework out-of-the-box.
 
 ## Dashboard Preview
 
