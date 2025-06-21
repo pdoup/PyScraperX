@@ -2,6 +2,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from functools import wraps
+from pathlib import Path
 from typing import Any, Callable, Dict, List
 
 import aiosqlite
@@ -73,7 +74,9 @@ class DatabaseManager:
             [tuple(str(rec[k]) for k in keys) for rec in records],
         )
         await db.commit()
-        logger.info(f"Inserted {len(records)} records into the database.")
+        logger.info(
+            f"Inserted {len(records)} records into '{Path(self.db_path).stem}'."
+        )
 
     @db_connection_required
     async def select_all(self, db: aiosqlite.Connection):
