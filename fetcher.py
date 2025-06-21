@@ -28,7 +28,8 @@ class DataFetcher:
         """
         Fetches data from the configured endpoint.
 
-        The endpoint can return either a single JSON object or a JSON array of objects. The data is validated against the RecordModel, and a list of successfully validated records is returned.
+        The endpoint can return either a single JSON object or a JSON array of objects.
+        The data is validated against the RecordModel, and a list of successfully validated records is returned.
         """
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
