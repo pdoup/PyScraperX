@@ -82,6 +82,16 @@ Once the service is running, access the UI by navigating to **http://localhost:8
 * Upon starting the main application a logger is instantiated, writing logs to inside a `logs/` folder, created in the current working directory. A new log file is created on every run.
 * Each `.sqlite` db is stored with a unique identifier inside the `dbs/` folder in the current working directory. Records are appended if the file already exists for an endpoint.  
 
+## Disclaimer
+#### <ins>Important Legal Disclaimer</ins>
+#### PyScraperX is provided for educational and informational purposes only.
+
+By using this framework, you acknowledge and agree that you are solely responsible for complying with all applicable laws, regulations, website terms of service, and any other relevant policies when performing web scraping activities.
+
+The creators and contributors of PyScraperX are not responsible for any misuse or illegal activities conducted by users of this software. It is your responsibility to ensure that your scraping activities are lawful and ethical. Always review a website's robots.txt file and terms of service before scraping.
+
+#### Use PyScraperX responsibly and at your own risk.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
