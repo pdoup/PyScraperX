@@ -1,5 +1,6 @@
 import logging
 import os
+from contextlib import asynccontextmanager
 from functools import wraps
 from typing import Any, Callable, Dict, List
 
@@ -9,37 +10,28 @@ from tabulate import tabulate
 logger = logging.getLogger("WebScraper")
 
 
-def db_connection_required(func: Callable[..., Any]):
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        db_manager_instance: DatabaseManager = args[0]
-        remaining_args_for_original_method = args[1:]
-
-        try:
-            async for db in db_manager_instance._get_connection():
-                dec_func = await func(
-                    db_manager_instance,
-                    db,
-                    *remaining_args_for_original_method,
-                    **kwargs,
-                )
-                return dec_func
-        except Exception as e:
-            logger.error(f"Database operation failed in {func.__name__}: {e}")
-            raise
-
-    return wrapper
-
-
 class DatabaseManager:
     def __init__(self, db_path: str):
         self.db_path = db_path
 
+    @asynccontextmanager
     async def _get_connection(self):
         """Helper method to establish and yield a database connection."""
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             yield db
+
+    def db_connection_required(func: Callable[..., Any]):
+        @wraps(func)
+        async def wrapper(self, *args, **kwargs):
+            try:
+                async with self._get_connection() as db:
+                    return await func(self, db, *args, **kwargs)
+            except Exception as e:
+                logger.error(f"Database operation failed in {func.__name__}: {e}")
+                raise
+
+        return wrapper
 
     @db_connection_required
     async def is_initialized(self, db: aiosqlite.Connection) -> bool:
