@@ -5,7 +5,7 @@ PyScraperX is a resilient, asynchronous web scraping framework built in Python. 
 ## Core Features
 
 * **Async Execution**: Leverages `asyncio` and `aiohttp` for high-performance, non-blocking net I/O, enabling scraping hundreds of endpoints concurrently.
-* **Background Threads**: Core scrape ops run in a background thread, ensuring that the UI and the scheduler remain responsive
+* **Background Threads**: Core scrape ops run in a background thread, ensuring that the UI and the scheduler remain responsive.
 * **Real-time Control Panel UI**: Built with FastAPI, it provides a live view of all scraping jobs and allows the admin to monitor job statuses, last/next runtimes per job and performance metrics.
 * **Job Control & Retry Logic**: The admin has the ability to manually resubmit failed jobs or filter by permanently deleted status and submit a batch restart.
 * **Configuration Driven**: Fine grained control over run intervals, target URL paths and retry policies via `.env.local` file.
@@ -26,18 +26,18 @@ Drill down into individual jobs to see run history and error messages:
 Two thread model
 
 1. **Main Thread**:
-    * Runs the **FastAPI server** ([`report/server.py`](report/server.py)) for the frontend
-    * Runs the **Job Scheduler** ([`job_scheduler.py`](job_scheduler.py)) which utilizes the `schedule` lib to trigger tasks at predefined intervals
+    * Runs the **FastAPI server** ([`report/server.py`](report/server.py)) for the frontend.
+    * Runs the **Job Scheduler** ([`job_scheduler.py`](job_scheduler.py)) which utilizes the `schedule` lib to trigger tasks at predefined intervals.
 2. **Background Thread**:
-    * Hosts a dedicated `asyncio` event loop ([`scheduler.py`](scheduler.py)). All network bound scraping tasks are dispatched to this loop
+    * Hosts a dedicated `asyncio` event loop ([`scheduler.py`](scheduler.py)). All network bound scraping tasks are dispatched to this loop.
 
 ### Workflow
 
-1. **Scheduling**: The `JobScheduler` in the main thread triggers the [`scrape_job`](scheduler.py) function based on the set interval
-2. **Dispatch**: [`scrape_job`](scheduler.py) uses `asyncio.run_coroutine_threadsafe` to safely dispatch `ScraperEngine.run_all()` coroutine to the bg event loop
+1. **Scheduling**: The `JobScheduler` in the main thread triggers the [`scrape_job`](scheduler.py) function based on the set interval.
+2. **Dispatch**: [`scrape_job`](scheduler.py) uses `asyncio.run_coroutine_threadsafe` to safely dispatch `ScraperEngine.run_all()` coroutine to the bg event loop.
 3. **Concurrent Scraping**: The [`ScraperEngine`](engine.py) gathers all active `WebScraper` instances and executes them using `asyncio.gather`.
 4. **Fetching JSON Data**: Each [`WebScraper`](scraper.py) uses a shared `aiohttp` session for async HTTP requests and stores the JSON response data in a separate SQLite db ([`database.py`](database.py)) after validating the data with `pydantic`.
-5. **Global State Management**: Each scraper, periodically updates its status in the thread-safe [`StateManager`](report/state_manager.py)
+5. **Global State Management**: Each scraper, periodically updates its status in the thread-safe [`StateManager`](report/state_manager.py).
 6. **UI Reports**: The FastAPI servers `/api/jobs` endpoint reads from the [`StateManager`](report/state_manager.py) to provide the latest health status and run details to the frontend, which polls the endpoint to keep the dashboard up-to-date.
 
 ## Getting Started
