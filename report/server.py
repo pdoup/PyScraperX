@@ -12,12 +12,20 @@ from fastapi.templating import Jinja2Templates
 from config import UvicornServerSettings, settings
 from report.job_models import (RestartJobBatchResponse, RestartJobRequest,
                                RestartJobResponse)
-from report.state_manager import (get_all_job_statuses,
-                                  restart_all_failed_jobs, restart_job)
+from report.state_manager import state_manager
 
 logger = logging.getLogger("WebScraper")
 
-app = FastAPI(title="Web Scraper Admin Panel")
+app = FastAPI(
+    title="Web Scraper Admin Panel",
+    description="Manage and monitor scraping tasks, schedules, and logs.",
+    version="1.0.0",
+    summary="Admin backend for a web scraping platform.",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+    debug=settings.debug,
+)
 app.mount(
     "/static",
     StaticFiles(directory=pathlib.Path(__file__).parent / "static"),
@@ -46,19 +54,17 @@ async def read_root(request: Request):
 @app.get("/api/jobs")
 async def get_jobs_status():
     """API endpoint to get the current status of all jobs."""
-    return get_all_job_statuses()
+    return await state_manager.get_all_job_statuses()
 
 
 @app.post("/api/jobs/restart")
 async def restart_failed_job(payload: RestartJobRequest):
     """
     Restarts a job that is in a 'Failed' or 'Permanently Failed' state.
-
-    This endpoint validates the job's current state before resetting its
-    retry count and error message, allowing the scheduler to attempt the
-    job again.
     """
-    restart_response: RestartJobResponse = await restart_job(job_id=payload.jobId)
+    restart_response: RestartJobResponse = await state_manager.restart_job(
+        job_id=payload.jobId
+    )
     if not restart_response.success:
         logger.warning(f"Failed to restart job {payload.jobId}, job remains [failed].")
         if "not found" in restart_response.message:
@@ -76,13 +82,9 @@ async def restart_failed_job(payload: RestartJobRequest):
 async def restart_all_permanently_failed_jobs():
     """
     Restarts all jobs currently in the 'Permanently Failed' state.
-
-    This endpoint is designed for the 'Restart All' button that appears
-    when filtering for permanently failed jobs. It runs the restart
-    operations concurrently for efficiency.
     """
     try:
-        result = await restart_all_failed_jobs()
+        result = await state_manager.restart_all_failed_jobs()
         logger.info(
             f"{result.restarted_count}/{result.restarted_count+result.failed_count} jobs scheduled for restart."
         )
