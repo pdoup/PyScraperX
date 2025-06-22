@@ -8,6 +8,7 @@ import aiohttp
 from aiohttp import ClientError, ClientResponseError, ClientTimeout
 from pydantic import HttpUrl, TypeAdapter, ValidationError
 
+from config import settings
 from models import RecordModel
 
 logger = logging.getLogger("WebScraper")
@@ -41,7 +42,7 @@ class DataFetcher:
                 self.endpoint.unicode_string(),
                 headers=headers,
                 allow_redirects=False,
-                timeout=ClientTimeout(total=15),
+                timeout=ClientTimeout(total=settings.http_client_timeout_seconds),
             ) as response:
                 response.raise_for_status()
 
