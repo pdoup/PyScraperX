@@ -57,7 +57,7 @@ async def get_jobs_status():
     return await state_manager.get_all_job_statuses()
 
 
-@app.post("/api/jobs/restart")
+@app.post("/api/jobs/restart", response_model=RestartJobResponse)
 async def restart_failed_job(payload: RestartJobRequest):
     """
     Restarts a job that is in a 'Failed' or 'Permanently Failed' state.
@@ -73,9 +73,7 @@ async def restart_failed_job(payload: RestartJobRequest):
             raise HTTPException(status_code=409, detail=restart_response.message)
 
     logger.info(f"Job {payload.jobId} restarted.")
-    return JSONResponse(
-        {"status": restart_response.success, "message": restart_response.message}
-    )
+    return restart_response
 
 
 @app.post("/api/jobs/restart_all", response_model=RestartJobBatchResponse)
