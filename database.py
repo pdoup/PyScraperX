@@ -75,7 +75,7 @@ class DatabaseManager:
         )
         await db.commit()
         logger.info(
-            f"Inserted {len(records)} records into '{Path(self.db_path).stem}'."
+            f"Inserted {len(records)} record(s) into '{Path(self.db_path).stem}'."
         )
 
     @db_connection_required
