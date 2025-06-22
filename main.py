@@ -10,7 +10,7 @@ logger = setup_logger()
 
 os.makedirs("dbs", exist_ok=True)
 
-start_web_server(port=8000)
+start_web_server()
 
 # Initialize the async event loop and ScraperEngine in a background thread
 init_async_services()
@@ -26,7 +26,7 @@ elif run_interval.unit == "minutes":
 
 if __name__ == "__main__":
     logger.info(
-        f"Web scraper service started with options: {settings.model_dump(exclude_unset=True, exclude_none=True, serialize_as_any=True)}"
+        f"Web scraper service started with options: {settings.model_dump(exclude_unset=False, exclude_none=False, serialize_as_any=True)}"
     )
     try:
         scrape_job()  # Initial synchronous call to dispatch the async job
