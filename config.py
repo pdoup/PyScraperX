@@ -3,14 +3,8 @@ from collections import namedtuple
 from pathlib import Path
 from typing import Annotated, Any, List, Optional
 
-from pydantic import (
-    BaseModel,
-    BeforeValidator,
-    Field,
-    HttpUrl,
-    IPvAnyAddress,
-    ValidationError,
-)
+from pydantic import (BaseModel, BeforeValidator, Field, HttpUrl,
+                      IPvAnyAddress, ValidationError)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger("WebScraper")
@@ -139,6 +133,36 @@ class AppSettings(BaseSettings):
 
     update_interval_ms: int = Field(
         default=1000, description="Update UI every X ms", ge=1000
+    )
+
+    debug: Optional[bool] = Field(
+        default=False,
+        description="Use debug mode for FastAPI",
+    )
+
+    master_scheduler_id: Optional[str] = Field(
+        default="main_scheduler_job",
+        description="ID of the master job",
+        min_length=1,
+        max_length=100,
+        strict=True,
+        frozen=True,
+    )
+
+    restart_all_timeout_seconds: Optional[float] = Field(
+        default=60.0,
+        description="Max timeout in seconds for restarting permanently failed jobs",
+        gt=0,
+        allow_inf_nan=False,
+        validate_default=False,
+    )
+
+    http_client_timeout_seconds: Optional[float] = Field(
+        default=10.0,
+        description="Max response timeout in seconds for HTTP requests",
+        gt=0,
+        allow_inf_nan=False,
+        validate_default=False,
     )
 
     server: UvicornServerSettings = Field(
