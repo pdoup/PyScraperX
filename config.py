@@ -3,8 +3,14 @@ from collections import namedtuple
 from pathlib import Path
 from typing import Annotated, Any, List, Optional
 
-from pydantic import (BaseModel, BeforeValidator, Field, HttpUrl,
-                      IPvAnyAddress, ValidationError)
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    Field,
+    HttpUrl,
+    IPvAnyAddress,
+    ValidationError,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger("WebScraper")
@@ -51,7 +57,11 @@ class UvicornServerSettings(BaseSettings):
         validate_default=False,
         frozen=True,
     )
-    log_level: Optional[LogLevelType] = Field(default="info", description="Log level for Uvicorn (e.g., 'info', 'warning', 'debug', 'trace').", validate_default=False)  # type: ignore
+    log_level: Optional[LogLevelType] = Field(
+        default="info",
+        description="Log level for Uvicorn (e.g., 'info', 'warning', 'debug', 'trace').",
+        validate_default=False,
+    )
     timeout_graceful_shutdown: Optional[int] = Field(
         default=10,
         ge=0,
