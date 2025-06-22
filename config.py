@@ -88,10 +88,17 @@ class Config(BaseModel):
 ResolveTime = namedtuple("ResolveTime", ("interval", "unit"), defaults=(30, "seconds"))
 
 
-def load_urls(filepath: Path) -> Config:
+def load_urls(filepath: Path, ignore_starts_with: Optional[str] = "#") -> Config:
+    """
+    Loads URLs from a text file, ignoring empty lines and lines that start with '#'.
+    """
     try:
         with open(filepath, "r", encoding="utf-8") as f:
-            lines = list(line.strip() for line in f if line.strip())
+            lines = list(
+                line.strip()
+                for line in f
+                if line.strip() and not line.strip().startswith(ignore_starts_with)
+            )
             logger.debug(lines)
         return Config(urls=lines)
     except ValidationError as e:
