@@ -32,7 +32,7 @@ class ScraperEngine:
         """
         if self.http_session is None or self.http_session.closed:
             self.http_session = aiohttp.ClientSession(
-                timeout=ClientTimeout(total=10),
+                timeout=ClientTimeout(total=settings.http_client_timeout_seconds),
                 headers={
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                     "Accept": "application/json",
