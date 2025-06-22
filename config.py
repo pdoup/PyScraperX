@@ -1,12 +1,80 @@
 import logging
 from collections import namedtuple
 from pathlib import Path
-from typing import List, Optional
+from typing import Annotated, Any, List, Optional
 
-from pydantic import BaseModel, Field, HttpUrl, ValidationError
+from pydantic import (BaseModel, BeforeValidator, Field, HttpUrl,
+                      IPvAnyAddress, ValidationError)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger("WebScraper")
+
+
+def validate_log_level(v: Any) -> str:
+    """Validates if the provided value is a valid Uvicorn log level."""
+    valid_levels = ("critical", "error", "warning", "info", "debug", "trace")
+    if isinstance(v, str) and v.lower() in valid_levels:
+        return v.lower()
+    raise ValueError(f"Invalid log level: '{v}'. Must be one of {valid_levels}")
+
+
+LogLevelType = Annotated[str, BeforeValidator(validate_log_level)]
+
+
+class UvicornServerSettings(BaseSettings):
+    """
+    Settings for the Uvicorn web server.
+    """
+
+    model_config = SettingsConfigDict(
+        extra="allow",
+        env_file=".env.server",
+        env_prefix="SERVER_",
+        env_ignore_empty=True,
+        env_parse_none_str=True,
+    )
+
+    host: Annotated[
+        IPvAnyAddress,
+        Field(
+            default="127.0.0.1",
+            description="Host to bind the server to.",
+            validate_default=False,
+            frozen=True,
+        ),
+    ]
+    port: int = Field(
+        default=8000,
+        gt=0,
+        le=65535,
+        description="Port to bind the server to. Must be between 1 and 65535.",
+        validate_default=False,
+        frozen=True,
+    )
+    log_level: Optional[LogLevelType] = Field(default="info", description="Log level for Uvicorn (e.g., 'info', 'warning', 'debug', 'trace').", validate_default=False)  # type: ignore
+    timeout_graceful_shutdown: Optional[int] = Field(
+        default=10,
+        ge=0,
+        description="Timeout in seconds for graceful server shutdown.",
+        validate_default=False,
+    )
+    limit_concurrency: Optional[int] = Field(
+        default=50,
+        ge=1,
+        description="Maximum number of concurrent connections or tasks.",
+    )
+    workers: Optional[int] = Field(
+        None, ge=1, description="Number of worker processes."
+    )
+    reload: Optional[bool] = Field(
+        default=False, description="Enable auto-reloading for development."
+    )
+    ssl_keyfile: Optional[str] = None
+    ssl_certfile: Optional[str] = None
+
+    @property
+    def host_str(self) -> str:
+        return self.host.compressed
 
 
 class Config(BaseModel):
@@ -61,6 +129,11 @@ class AppSettings(BaseSettings):
 
     update_interval_ms: int = Field(
         default=1000, description="Update UI every X ms", ge=1000
+    )
+
+    server: UvicornServerSettings = Field(
+        default_factory=UvicornServerSettings,
+        description="Uvicorn web server configuration.",
     )
 
     @property
