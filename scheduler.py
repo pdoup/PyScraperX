@@ -1,3 +1,11 @@
+import warnings
+
+warnings.warn(
+    "This module is deprecated.",
+    category=DeprecationWarning,
+    stacklevel=2,
+)
+
 import asyncio
 import logging
 import time
