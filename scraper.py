@@ -1,7 +1,7 @@
 import asyncio
 import datetime
 import logging
-import os
+import os.path as osp
 import time
 from urllib.parse import urlparse
 
@@ -13,7 +13,7 @@ from config import settings
 from database import DatabaseManager
 from fetcher import DataFetcher
 from models import JobStatus
-from report.state_manager import job_status_data, update_job_status
+from report.state_manager import state_manager
 
 logger = logging.getLogger("WebScraper")
 
@@ -33,13 +33,16 @@ class WebScraper:
             c for c in hostname if c.isalnum() or c == "."
         ).replace(".", "_")
         # Use a part of the db_path to make it more unique if multiple endpoints from same host
-        db_name_part = os.path.basename(db_path).split(".")[0]
+        db_name_part = osp.basename(db_path).split(".")[0]
         self.job_id = f"{sanitized_hostname}_{db_name_part}"
 
-        # Initialize status for this specific scraper job
-        update_job_status(
+    async def initialize_job_status(self):
+        """
+        Registers and initializes the job status for this scraper instance.
+        """
+        await state_manager.register_job(self.job_id, name=str(self.endpoint))
+        await state_manager.update_job_status(
             self.job_id,
-            name=endpoint,
             status=JobStatus.INITIALIZED,
             total_runs=0,
             success_count=0,
@@ -51,20 +54,30 @@ class WebScraper:
         async with self.lock:
             start_time = time.monotonic()
 
-            current_status = job_status_data.get(self.job_id, {})
-            current_retry_count = current_status.get("retry_count", 0)
-            job_max_retries = current_status.get("max_retries", settings.max_retries)
-
-            if current_status.get("status") == JobStatus.PERMANENTLY_FAILED:
-                logger.warning(
-                    f"Skipping permanently failed scraper: {self.job_id} ({current_status.get('error_message', 'No error message')})"
+            current_job_state = await state_manager.get_job_status(self.job_id)
+            if not current_job_state:
+                logger.error(
+                    f"Job state for '{self.job_id}' not found. Cannot proceed."
                 )
                 return
 
-            main_dispatcher_status = job_status_data.get("main_scheduler_job", {})
-            next_run_time = main_dispatcher_status.get("next_run")
+            current_retry_count = current_job_state.retry_count
+            job_max_retries = current_job_state.max_retries or settings.max_retries
 
-            update_job_status(
+            if current_job_state.status == JobStatus.PERMANENTLY_FAILED:
+                logger.warning(
+                    f"Skipping permanently failed scraper: {self.job_id} ({current_job_state.error_message or 'No error message'})"
+                )
+                return
+
+            main_dispatcher_status = await state_manager.get_job_status(
+                settings.master_scheduler_id
+            )
+            next_run_time = (
+                main_dispatcher_status.next_run if main_dispatcher_status else None
+            )
+
+            await state_manager.update_job_status(
                 self.job_id,
                 status=JobStatus.RUNNING,
                 last_run=datetime.datetime.now(),
@@ -87,12 +100,12 @@ class WebScraper:
                 end_time = time.monotonic()
                 duration_ms = (end_time - start_time) * 1000
 
-                update_job_status(
+                await state_manager.update_job_status(
                     self.job_id,
                     status=JobStatus.SUCCESS,
                     duration_ms=duration_ms,
-                    success_count=current_status.get("success_count", 0) + 1,
-                    total_runs=current_status.get("total_runs", 0) + 1,
+                    success_count=current_job_state.success_count + 1,
+                    total_runs=current_job_state.total_runs + 1,
                     next_run=next_run_time,
                     retry_count=0,
                 )
@@ -124,13 +137,13 @@ class WebScraper:
                         f"Scraper {self.job_id} failed ({current_retry_count}/{job_max_retries} attempts): {e}"
                     )
 
-                update_job_status(
+                await state_manager.update_job_status(
                     self.job_id,
                     status=final_status,
                     error_message=error_message,
                     duration_ms=duration_ms,
-                    fail_count=current_status.get("fail_count", 0) + 1,
-                    total_runs=current_status.get("total_runs", 0) + 1,
+                    fail_count=current_job_state.fail_count + 1,
+                    total_runs=current_job_state.total_runs + 1,
                     next_run=next_run_time,
                     retry_count=current_retry_count,
                 )
