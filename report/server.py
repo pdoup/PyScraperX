@@ -1,14 +1,15 @@
 import logging
 import pathlib
 import threading
+from typing import Any, Dict
 
-from fastapi.staticfiles import StaticFiles
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from config import settings
+from config import UvicornServerSettings, settings
 from report.job_models import (RestartJobBatchResponse, RestartJobRequest,
                                RestartJobResponse)
 from report.state_manager import (get_all_job_statuses,
@@ -17,7 +18,11 @@ from report.state_manager import (get_all_job_statuses,
 logger = logging.getLogger("WebScraper")
 
 app = FastAPI(title="Web Scraper Admin Panel")
-app.mount("/static", StaticFiles(directory=pathlib.Path(__file__).parent / "static"), name="static")
+app.mount(
+    "/static",
+    StaticFiles(directory=pathlib.Path(__file__).parent / "static"),
+    name="static",
+)
 templates = Jinja2Templates(directory=pathlib.Path(__file__).parent / "index")
 
 
@@ -92,18 +97,48 @@ async def restart_all_permanently_failed_jobs():
         )
 
 
-def start_web_server(host: str = "localhost", port: int = 8000):
+def start_web_server():
     """Starts the FastAPI web server in a separate thread."""
-
-    def run_server():
-        uvicorn.run(
-            app,
-            host=host,
-            port=port,
-            log_level="warning",
-            timeout_graceful_shutdown=10,
-            limit_concurrency=50,
+    uvicorn_settings: UvicornServerSettings = settings.server
+    if uvicorn_settings.workers is not None and uvicorn_settings.workers > 1:
+        logger.warning(
+            "Uvicorn 'workers' parameter is set to > 1. "
+            "When running Uvicorn programmatically in a separate Python `threading.Thread`, "
+            "it's strongly recommended to use `workers=1` to avoid multiprocessing conflicts "
+            "and lifecycle management issues. "
+        )
+        raise ValueError(
+            "Cannot start Uvicorn with workers > 1 in a separate thread. Adjust settings or use direct Uvicorn launch."
         )
 
-    threading.Thread(target=run_server, daemon=True, name="uvicorn_thread").start()
-    logger.info(f"Admin Web Server started on http://{host}:{port}")
+    uvicorn_config_params: Dict[str, Any] = dict(
+        app=app,
+        host=uvicorn_settings.host_str,
+        port=uvicorn_settings.port,
+        log_level=uvicorn_settings.log_level,
+        timeout_graceful_shutdown=uvicorn_settings.timeout_graceful_shutdown,
+        limit_concurrency=uvicorn_settings.limit_concurrency,
+        reload=uvicorn_settings.reload,
+        workers=uvicorn_settings.workers,
+    )
+    if uvicorn_settings.model_extra:
+        logger.debug(f"Passing extra Uvicorn options: {uvicorn_settings.model_extra}")
+        uvicorn_config_params.update(uvicorn_settings.model_extra)
+
+    def run_uvicorn_server():
+        try:
+            config = uvicorn.Config(**uvicorn_config_params)
+            server = uvicorn.Server(config)
+            logger.info(
+                f"Uvicorn Server instance created for http://{uvicorn_settings.host}:{uvicorn_settings.port}"
+            )
+            server.run()
+        except Exception as e:
+            logger.exception(f"Uvicorn server failed to start: {e}")
+
+    threading.Thread(
+        target=run_uvicorn_server, daemon=True, name="uvicorn_thread"
+    ).start()
+    logger.info(
+        f"Admin Web Server started on http://{uvicorn_settings.host}:{uvicorn_settings.port}"
+    )
