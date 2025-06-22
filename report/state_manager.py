@@ -75,7 +75,6 @@ class StateManager:
                 update={
                     "status": JobStatus.SCHEDULED,
                     "retry_count": 0,
-                    "fail_count": 0,
                     "error_message": None,
                     "last_status_change": datetime.datetime.now(),
                 }
