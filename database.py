@@ -55,7 +55,9 @@ class DatabaseManager:
         columns = ", ".join([f"{k} TEXT" for k in sample.keys()])
         await db.execute(f"CREATE TABLE records ({columns})")
         await db.commit()
-        logger.info("Database schema initialized")
+        logger.info(
+            f"Database schema initialized at '{Path(self.db_path).stem}' with columns={set(sample.keys())}"
+        )
 
     @db_connection_required
     async def insert(self, db: aiosqlite.Connection, records: List[Dict]):
