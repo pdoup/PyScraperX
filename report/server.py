@@ -10,8 +10,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from config import UvicornServerSettings, settings
-from report.job_models import (RestartJobBatchResponse, RestartJobRequest,
-                               RestartJobResponse)
+from report.job_models import (
+    RestartJobBatchResponse,
+    RestartJobRequest,
+    RestartJobResponse,
+)
 from report.state_manager import state_manager
 
 logger = logging.getLogger("WebScraper")
