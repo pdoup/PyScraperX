@@ -1,17 +1,54 @@
 import logging
 from collections import namedtuple
+from enum import Enum
 from pathlib import Path
 from typing import Annotated, Any, List, Optional
 
-from pydantic import (BaseModel, BeforeValidator, Field, HttpUrl,
-                      IPvAnyAddress, ValidationError)
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    Field,
+    HttpUrl,
+    IPvAnyAddress,
+    ValidationError,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger("WebScraper")
 
 
+class LogLevel(str, Enum):
+    DEBUG = "debug"
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+    CRITICAL = "critical"
+
+    def to_logging_level(self) -> int:
+        """Convert to the corresponding logging module level."""
+        return {
+            LogLevel.DEBUG: logging.DEBUG,
+            LogLevel.INFO: logging.INFO,
+            LogLevel.WARNING: logging.WARNING,
+            LogLevel.ERROR: logging.ERROR,
+            LogLevel.CRITICAL: logging.CRITICAL,
+        }[self]
+
+    @classmethod
+    def _missing_(cls, value: Any):
+        """Allows coercion from string (case-insensitive) and validates."""
+        if isinstance(value, str):
+            normalized = value.lower()
+            for level in cls:
+                if level.value == normalized:
+                    return level
+        raise ValueError(
+            f"Invalid log level: {value!r}. Must be one of: {', '.join([l.value for l in cls])}"
+        )
+
+
 def validate_log_level(v: Any) -> str:
-    """Validates if the provided value is a valid Uvicorn log level."""
+    """Validates if the provided value is a valid log level."""
     valid_levels = ("critical", "error", "warning", "info", "debug", "trace")
     if isinstance(v, str) and v.lower() in valid_levels:
         return v.lower()
@@ -169,6 +206,13 @@ class AppSettings(BaseSettings):
         description="Max response timeout in seconds for HTTP requests",
         gt=0,
         allow_inf_nan=False,
+        validate_default=False,
+    )
+
+    log_level: LogLevel = Field(
+        default=LogLevel.INFO,
+        description="Logging level for main logger (debug, info, warning, error, critical)",
+        frozen=True,
         validate_default=False,
     )
 
