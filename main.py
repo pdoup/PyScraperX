@@ -11,7 +11,7 @@ from models import JobStatus
 from report.server import start_web_server
 from report.state_manager import state_manager
 
-logger = setup_logger()
+logger = setup_logger(log_level=settings.log_level.to_logging_level())
 
 # Ensure the database directory exists
 os.makedirs("dbs", exist_ok=True)
