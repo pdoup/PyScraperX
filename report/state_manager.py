@@ -4,8 +4,7 @@ from typing import Any, Dict, List, Optional
 
 from config import settings
 from models import JobStatus
-from report.job_models import (JobState, RestartJobBatchResponse,
-                               RestartJobResponse)
+from report.job_models import JobState, RestartJobBatchResponse, RestartJobResponse
 
 
 class StateManager:
