@@ -231,6 +231,7 @@
 
         .details-row.visible {
             display: table-row;
+            background-color: var(--input-bg);
         }
 
         .fade-out {
@@ -306,6 +307,11 @@
         html.dark #theme-toggle .sun-icon {
             display: none;
         }
+
+        .table-row-separator tr {
+            border-bottom: 1px solid var(--border-color);
+        }
+
     </style>
 </head>
 
@@ -412,7 +418,7 @@
 
         <main class="flex-1 p-8">
             <div
-                class="mb-6 p-4 bg-gray-500/10 dark:bg-gray-800/40 rounded-xl border border-border-color/50 flex flex-wrap items-center gap-4">
+                class="mb-6 p-4 bg-white-500/10 dark:bg-white-800/40 rounded-xl border border-border-color/50 flex flex-wrap items-center gap-4">
                 <div class="flex-grow min-w-[200px]">
                     <label for="filter-text" class="text-sm font-medium text-secondary sr-only">Filter by name</label>
                     <input type="text" id="filter-text" placeholder="Filter by name..."
@@ -445,8 +451,8 @@
                 </div>
             </div>
 
-            <div class="bg-gray-500/10 dark:bg-gray-800/40 rounded-xl border border-border-color/50 overflow-hidden">
-                <table class="min-w-full">
+            <div class="bg-white-500/10 dark:bg-white-800/40 rounded-xl border border-border-color/50 overflow-hidden">
+                <table class="min-w-full table-row-separator">
                     <thead class="border-b border-border-color">
                         <tr>
                             <th
@@ -604,7 +610,7 @@
 
                 detailsRow.innerHTML = `
                 <td colspan="6" class="p-0">
-                    <div class="bg-black/5 dark:bg-gray-900/50 p-6 flex justify-between items-start gap-6">
+                    <div class="bg-black/5 dark:bg-white-900/50 p-6 flex justify-between items-start gap-6">
                         <div class="flex-grow">
                             <dl class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4">
                                 <div class="flex items-center gap-2">
