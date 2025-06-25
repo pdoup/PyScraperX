@@ -6,11 +6,16 @@ from urllib.parse import urlparse
 
 import aiohttp
 from aiohttp import ClientTimeout
+from dotenv import load_dotenv
 
 from config import load_urls, settings
 from models import JobStatus
 from report.state_manager import state_manager
 from scraper import WebScraper
+
+load_dotenv(
+    dotenv_path=settings.model_config.get("env_file"), override=True, verbose=True
+)
 
 logger = logging.getLogger("WebScraper")
 
