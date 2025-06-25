@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Annotated, Any, List, Optional
 
 from pydantic import (
+    AnyUrl,
     BaseModel,
     BeforeValidator,
     Field,
@@ -219,6 +220,16 @@ class AppSettings(BaseSettings):
     server: UvicornServerSettings = Field(
         default_factory=UvicornServerSettings,
         description="Uvicorn web server configuration.",
+    )
+
+    http_proxy: Optional[AnyUrl] = Field(
+        default=None, env="HTTP_PROXY", frozen=True, description="URL of the HTTP Proxy"
+    )
+    https_proxy: Optional[AnyUrl] = Field(
+        default=None,
+        env="HTTPS_PROXY",
+        frozen=True,
+        description="URL of the HTTPS Proxy",
     )
 
     @property
