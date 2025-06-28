@@ -27,7 +27,7 @@ class WebScraper:
         self.lock = asyncio.Lock()
 
         # Create a unique job ID for this scraper instance
-        self.job_id = self._generate_job_id()
+        self.job_id = self._generate_job_id(endpoint, db_path)
 
     @staticmethod
     def _generate_job_id(endpoint: HttpUrl, db_path: str) -> str:
