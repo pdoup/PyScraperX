@@ -2,7 +2,6 @@ import asyncio
 import datetime
 import hashlib
 import logging
-import os.path as osp
 import time
 from urllib.parse import urlparse
 
@@ -24,7 +23,7 @@ class WebScraper:
         self.endpoint = endpoint
         self.db_path = db_path
         self.fetcher = DataFetcher(endpoint, session)
-        self.db = DatabaseManager(db_path)
+        self.db_manager = DatabaseManager(db_path)
         self.lock = asyncio.Lock()
 
         # Create a unique job ID for this scraper instance
@@ -109,12 +108,13 @@ class WebScraper:
             try:
                 records = await self.fetcher.fetch()
                 if records:
-                    if not await self.db.is_initialized():
-                        await self.db.initialize(records[0])
-                    await self.db.insert(records)
+                    async with self.db_manager as db_manager:
+                        if not await db_manager.is_initialized():
+                            await db_manager.initialize(records[0])
+                        await db_manager.insert(records)
 
-                    if show:
-                        await self.db.select_all()
+                        if show:
+                            await db_manager.select_all()
 
                 end_time = time.monotonic()
                 duration_ms = (end_time - start_time) * 1000
