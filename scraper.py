@@ -149,11 +149,11 @@ class WebScraper:
                     next_run_time = None  # No more runs for this job
                     error_message = f"Permanently failed after {current_retry_count}/{job_max_retries} retries: {error_message}"
                     logger.critical(
-                        f"Scraper {self.job_id} has permanently failed: {error_message}"
+                        f"Scraper '{self.job_id}' has permanently failed: {error_message}"
                     )
                 else:
                     logger.error(
-                        f"Scraper {self.job_id} failed ({current_retry_count}/{job_max_retries} attempts): {e}"
+                        f"Scraper '{self.job_id}' failed ({current_retry_count}/{job_max_retries} attempts): {e}"
                     )
 
                 await state_manager.update_job_status(
