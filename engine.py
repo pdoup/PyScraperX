@@ -1,12 +1,15 @@
 import asyncio
+import hashlib
 import logging
 import os
+import os.path as osp
 from typing import Optional
 from urllib.parse import urlparse
 
 import aiohttp
 from aiohttp import ClientTimeout
 from dotenv import load_dotenv
+from pydantic import HttpUrl
 
 from config import load_urls, settings
 from models import JobStatus
@@ -21,7 +24,7 @@ logger = logging.getLogger("WebScraper")
 
 
 class ScraperEngine:
-    db_path_base = os.path.join(os.path.dirname(__file__), "dbs")
+    db_path_base = osp.join(osp.dirname(__file__), "dbs")
 
     def __init__(self) -> None:
         self.config = load_urls(settings.urls_path)
@@ -52,6 +55,33 @@ class ScraperEngine:
         else:
             logger.debug("ScraperEngine: http_session already initialized.")
 
+    def _get_db_file_path(self, url_str: HttpUrl) -> str:
+        """
+        Constructs the full database file path for a given URL.
+        The filename is composed of a sanitized hostname and a short hash of the full URL,
+        ensuring uniqueness and descriptiveness for different endpoints on the same host.
+
+        Args:
+            url_str: The Pydantic HttpUrl object for which to generate the DB path.
+
+        Returns:
+            The complete file path for the SQLite database.
+        """
+        parsed_url = urlparse(url_str.unicode_string())
+        hostname = parsed_url.hostname if parsed_url.hostname else "unknown_host"
+
+        sanitized_hostname = "".join(
+            c for c in hostname if c.isalnum() or c == "."
+        ).replace(".", "_")
+
+        url_hash = hashlib.sha256(url_str.unicode_string().encode("utf-8")).hexdigest()[
+            :8
+        ]
+
+        db_filename = f"db_{sanitized_hostname}_{url_hash}.sqlite3"
+        full_db_path = osp.join(self.db_path_base, db_filename)
+        return full_db_path
+
     async def _initialize_scrapers(self):
         """
         Initializes WebScraper instances for each URL in the config and
@@ -65,18 +95,13 @@ class ScraperEngine:
         os.makedirs(self.db_path_base, exist_ok=True)
 
         initialization_tasks = []
-        for i, url_str in enumerate(self.config.urls):
-            parsed_url = urlparse(url_str.unicode_string())
-            hostname = (
-                parsed_url.hostname if parsed_url.hostname else f"unknown_host_{i}"
-            )
-            db_filename = f"db_{hostname}_{i}.sqlite3"
-            full_db_path = os.path.join(self.db_path_base, db_filename)
+        for url_str in self.config.urls:
+            full_db_path = self._get_db_file_path(url_str)
 
             logger.info(
                 "Setting up WebScraper for URL: %s (DB: %s)",
                 url_str.unicode_string(),
-                db_filename,
+                osp.basename(full_db_path),
             )
             scraper = WebScraper(url_str, full_db_path, self.http_session)
             self.scrapers.append(scraper)
