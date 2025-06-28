@@ -1,11 +1,40 @@
-# Define a Pydantic model for the request body to ensure data is valid
 import datetime
-from typing import List, Optional
+from typing import Annotated, Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_serializer
 
 from config import settings
 from models import JobStatus
+
+JobStateListType = Annotated[
+    List[Dict[str, Any]],
+    Field(
+        ...,
+        title="List of Job States",
+        description="A non-empty list containing the current state of each job.",
+        frozen=True,
+        min_length=1,
+        examples=[
+            [
+                {
+                    "id": "job_001",
+                    "name": "DataCollector",
+                    "status": "initialized",
+                    "last_run": None,
+                    "next_run": None,
+                    "duration_ms": 0.0,
+                    "error_message": None,
+                    "total_runs": 0,
+                    "success_count": 0,
+                    "fail_count": 0,
+                    "last_status_change": "2025-06-28T10:00:00",
+                    "max_retries": 3,
+                    "retry_count": 0,
+                }
+            ]
+        ],
+    ),
+]
 
 
 class RestartJobRequest(BaseModel):
@@ -68,3 +97,7 @@ class JobState(BaseModel):
     )
     def serialize_dt(self, v: Optional[datetime.datetime]) -> Optional[str]:
         return v.isoformat() if v else None
+
+
+class JobStateUpdate(BaseModel):
+    jobData: JobStateListType
