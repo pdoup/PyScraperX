@@ -2,17 +2,10 @@ import logging
 from collections import namedtuple
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Any, List, Optional
+from typing import Annotated, Any, List, Optional, Set
 
-from pydantic import (
-    AnyUrl,
-    BaseModel,
-    BeforeValidator,
-    Field,
-    HttpUrl,
-    IPvAnyAddress,
-    ValidationError,
-)
+from pydantic import (AnyUrl, BaseModel, BeforeValidator, Field, HttpUrl,
+                      IPvAnyAddress, ValidationError, field_validator)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger("WebScraper")
@@ -120,7 +113,25 @@ class UvicornServerSettings(BaseSettings):
 
 
 class Config(BaseModel):
-    urls: List[HttpUrl]
+    urls: Set[HttpUrl]
+
+    @field_validator("urls", mode="before")
+    @classmethod
+    def log_duplicates(cls, v: List[str]) -> Set[HttpUrl]:
+        """
+        Logs the number of duplicate URLs found in the input list before
+        Pydantic converts them to a unique set.
+        """
+        if not isinstance(v, list):
+            return v
+
+        unique_urls = set(v)
+        duplicate_count = len(v) - len(unique_urls)
+        if duplicate_count > 0:
+            logger.warning(
+                f"Found {duplicate_count} duplicate URL(s) in the input file. They will be ignored."
+            )
+        return unique_urls
 
 
 ResolveTime = namedtuple("ResolveTime", ("interval", "unit"), defaults=(30, "seconds"))
@@ -128,22 +139,68 @@ ResolveTime = namedtuple("ResolveTime", ("interval", "unit"), defaults=(30, "sec
 
 def load_urls(filepath: Path, ignore_starts_with: Optional[str] = "#") -> Config:
     """
-    Loads URLs from a text file, ignoring empty lines and lines that start with '#'.
+    Loads URLs from a text file, ignoring empty lines and lines that start with a specified prefix.
+
+    Args:
+        filepath (Path): The path to the text file containing the URLs.
+        ignore_starts_with (Optional[str]): A string prefix to ignore lines that start with.
+                                            Defaults to "#". If None, no lines are ignored based on prefix.
+
+    Returns:
+        Config: A Config object containing the loaded URLs.
+
+    Raises:
+        FileNotFoundError: If the specified file does not exist.
+        PermissionError: If there are insufficient permissions to read the file.
+        OSError: For other operating system-related errors during file access.
+        ValidationError: If the loaded URLs do not conform to the Config model's validation rules.
+        Exception: For any other unexpected errors during file processing.
     """
     try:
-        with open(filepath, "r", encoding="utf-8") as f:
-            lines = list(
-                line.strip()
+        with filepath.open(mode="r", encoding="utf-8") as f:
+            lines = [
+                line_s
                 for line in f
-                if line.strip() and not line.strip().startswith(ignore_starts_with)
+                if (line_s := line.strip())
+                and (
+                    ignore_starts_with is None
+                    or not line_s.startswith(ignore_starts_with)
+                )
+            ]
+
+        if not lines:
+            logger.warning(
+                f"No valid URLs found in '{filepath.resolve(strict=False)}'. File might be empty or contain only ignored lines."
             )
-            logger.debug(lines)
+
+        logger.debug(f"Loaded {len(lines)} URLs from '{filepath.name}'.")
+
         return Config(urls=lines)
-    except ValidationError as e:
-        logger.error(f"Invalid URLs in config: {e}")
-        raise
+
     except FileNotFoundError:
-        logger.error(f"{filepath.resolve(strict=False)} not found")
+        logger.error(
+            f"Error: URL file not found at '{filepath.resolve()}'. Please check the path."
+        )
+        raise
+    except PermissionError:
+        logger.error(
+            f"Error: Insufficient permissions to read URL file at '{filepath.resolve()}'."
+        )
+        raise
+    except OSError as e:
+        logger.error(
+            f"Error: An operating system error occurred while reading '{filepath.resolve()}': {e}"
+        )
+        raise
+    except ValidationError as e:
+        logger.error(
+            f"Error: Invalid URL format in '{filepath.resolve()}'. Validation details: {e}"
+        )
+        raise
+    except Exception as e:
+        logger.exception(
+            f"Unexpected error while processing URL file '{filepath.resolve()}': {e}"
+        )
         raise
 
 
