@@ -112,6 +112,21 @@ class UvicornServerSettings(BaseSettings):
     reload: Optional[bool] = Field(
         default=False, description="Enable auto-reloading for development."
     )
+    ws_max_retries_on_disconnect: Optional[int] = Field(
+        default=5,
+        description="Maximum number of connection attempts before closing the web socket",
+        gt=0,
+        allow_inf_nan=False,
+        frozen=True,
+    )
+    ws_reconnect_interval_ms: Optional[int] = Field(
+        default=5000,
+        description="Attempt to reconnect to web socket every X ms",
+        ge=1000,
+        frozen=True,
+        allow_inf_nan=True,
+    )
+
     ssl_keyfile: Optional[str] = None
     ssl_certfile: Optional[str] = None
 
