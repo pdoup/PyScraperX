@@ -4,8 +4,16 @@ from enum import Enum
 from pathlib import Path
 from typing import Annotated, Any, List, Optional, Set
 
-from pydantic import (AnyUrl, BaseModel, BeforeValidator, Field, HttpUrl,
-                      IPvAnyAddress, ValidationError, field_validator)
+from pydantic import (
+    AnyUrl,
+    BaseModel,
+    BeforeValidator,
+    Field,
+    HttpUrl,
+    IPvAnyAddress,
+    ValidationError,
+    field_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger("WebScraper")
@@ -272,6 +280,15 @@ class AppSettings(BaseSettings):
         description="Logging level for main logger (debug, info, warning, error, critical)",
         frozen=True,
         validate_default=False,
+    )
+
+    concurrent_scrapers: Optional[int] = Field(
+        default=10,
+        description="Upper limit to concurrent scraping tasks",
+        frozen=True,
+        validate_default=False,
+        gt=0,
+        allow_inf_nan=False,
     )
 
     server: UvicornServerSettings = Field(
