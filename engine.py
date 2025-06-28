@@ -129,7 +129,7 @@ class ScraperEngine:
             failure_count = len(results) - success_count
 
             logger.info(
-                f"ScraperEngine run finished. Successful: {success_count}/{failure_count + success_count}."
+                f"ScraperEngine run finished. Completed: {success_count}/{failure_count + success_count}. Active Scrapers: ({failure_count + success_count}/{len(self.scrapers)})"
             )
             for result in results:
                 if isinstance(result, Exception):
