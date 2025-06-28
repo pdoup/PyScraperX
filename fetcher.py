@@ -32,17 +32,10 @@ class DataFetcher:
         The endpoint can return either a single JSON object or a JSON array of objects.
         The data is validated against the RecordModel, and a list of successfully validated records is returned.
         """
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "application/json",
-        }
-
         try:
             async with self.session.get(
                 self.endpoint.unicode_string(),
-                headers=headers,
                 allow_redirects=False,
-                timeout=ClientTimeout(total=settings.http_client_timeout_seconds),
             ) as response:
                 response.raise_for_status()
 
@@ -80,10 +73,7 @@ class DataFetcher:
             logger.error(f"Timeout error reached fetching {self.endpoint}")
             raise
         except json.JSONDecodeError:
-            response_text = await response.text(encoding="utf-8", errors="ignore")
-            logger.error(
-                f"JSON decoding error from {self.endpoint}. Response text: {response_text[:500]}..."
-            )
+            logger.error(f"JSON decoding error from {self.endpoint}")
             raise
         except ValidationError as e:
             logger.error(f"Data validation error for batch from {self.endpoint}: {e}")
