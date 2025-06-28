@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import hashlib
 import logging
 import os.path as osp
 import time
@@ -27,28 +28,32 @@ class WebScraper:
         self.lock = asyncio.Lock()
 
         # Create a unique job ID for this scraper instance
-        self.job_id = self._generate_job_id(endpoint, db_path)
+        self.job_id = self._generate_job_id(endpoint)
 
     @staticmethod
-    def _generate_job_id(endpoint: HttpUrl, db_path: str) -> str:
+    def _generate_job_id(endpoint: HttpUrl) -> str:
         """
-        Generates a unique job ID based on the endpoint hostname and database path.
+        Generates a unique job ID based on the endpoint URL.
+        It uses a sanitized hostname and a short hash of the full URL for uniqueness.
 
         Args:
             endpoint: The HTTP URL endpoint for the scraper.
-            db_path: The path to the database file.
 
         Returns:
             A unique string identifier for the job.
         """
         hostname = urlparse(endpoint.unicode_string()).hostname
-        # Sanitize hostname for use in file names or unique IDs
+        # Sanitize hostname by replacing dots with underscores for consistency
         sanitized_hostname = "".join(
             c for c in hostname if c.isalnum() or c == "."
         ).replace(".", "_")
-        # Use a part of the db_path to make it more unique if multiple endpoints from same host
-        db_name_part = osp.basename(db_path).split(".")[0]
-        return f"{sanitized_hostname}_{db_name_part}"
+
+        # Generate a short, stable hash of the full URL string
+        url_hash = hashlib.sha256(
+            endpoint.unicode_string().encode("utf-8")
+        ).hexdigest()[:8]
+
+        return f"{sanitized_hostname}_{url_hash}"
 
     async def initialize_job_status(self):
         """
