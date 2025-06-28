@@ -1,16 +1,20 @@
+import asyncio
+from contextlib import asynccontextmanager
 import logging
 import pathlib
 import threading
 from typing import Any, Dict
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from report.ws_manager import WSConnectionManager
 from config import UvicornServerSettings, settings
 from report.job_models import (
+    JobStateUpdate,
     RestartJobBatchResponse,
     RestartJobRequest,
     RestartJobResponse,
@@ -18,6 +22,53 @@ from report.job_models import (
 from report.state_manager import state_manager
 
 logger = logging.getLogger("WebScraper")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    update_interval_s = settings.update_interval_ms / 1000.0
+    logger.info(
+        f"Starting background task to broadcast job updates every {settings.update_interval_ms} ms."
+    )
+    app.state.background_task = asyncio.create_task(
+        update_broadcaster(update_interval_s), name="bcast_update"
+    )
+    try:
+        yield
+    finally:
+        bg_task_ws_update = app.state.background_task
+        if bg_task_ws_update:
+            logger.info("Cancelling background task.")
+            bg_task_ws_update.cancel()
+            try:
+                await bg_task_ws_update
+            except asyncio.CancelledError:
+                logger.info("Background task successfully cancelled.")
+
+
+async def update_broadcaster(interval_ms: float):
+    """
+    Periodically fetches job statuses and broadcasts them to all clients.
+
+    Args:
+        interval_ms: The time to wait between broadcasts.
+    """
+    while True:
+        try:
+            await asyncio.sleep(interval_ms)
+            logger.debug(
+                f"Broadcasting job status updates to {len(wsconnection_manager.active_connections)} clients."
+            )
+            await wsconnection_manager.broadcast_json(
+                JobStateUpdate(
+                    jobData=await state_manager.get_all_job_statuses(json_encoded=True)
+                ).model_dump()
+            )
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            logger.exception("Error in background update broadcaster:")
+
 
 app = FastAPI(
     title="Web Scraper Admin Panel",
@@ -28,6 +79,7 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json",
     debug=settings.debug,
+    lifespan=lifespan,
 )
 app.mount(
     "/static",
@@ -35,6 +87,7 @@ app.mount(
     name="static",
 )
 templates = Jinja2Templates(directory=pathlib.Path(__file__).parent / "index")
+wsconnection_manager = WSConnectionManager()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -45,7 +98,8 @@ async def read_root(request: Request):
             "index.html",
             {
                 "request": request,
-                "update_interval": settings.update_interval_ms,
+                "ws_max_retries_on_disconnect": settings.server.ws_max_retries_on_disconnect,
+                "ws_reconnect_interval_ms": settings.server.ws_reconnect_interval_ms,
             },
         )
     except Exception as e:
@@ -54,10 +108,49 @@ async def read_root(request: Request):
         )
 
 
-@app.get("/api/jobs")
+@app.websocket("/ws/jobs")
+async def websocket_endpoint(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time job status updates.
+    - A new client receives the full current job list upon connection.
+    - The connection is kept alive to receive subsequent broadcasted updates.
+    """
+    await wsconnection_manager.connect(websocket)
+    try:
+        # 1. Send the initial full state to the newly connected client.
+        logger.info(f"Sending initial state to client {websocket.client}")
+        await websocket.send_json(
+            JobStateUpdate(
+                jobData=await state_manager.get_all_job_statuses(json_encoded=True)
+            ).model_dump(),
+            mode="text",
+        )
+
+        # 2. Keep the connection alive.
+        # The client doesn't need to send messages, so we just wait for disconnection.
+        while True:
+            # This will block until a message is received or the connection is closed.
+            await websocket.receive_text()
+            # In a two-way communication app, you would process the received text here.
+            # For this broadcast-only use case, we ignore it.
+
+    except WebSocketDisconnect:
+        logger.info(f"Client {websocket.client} disconnected gracefully.")
+    except Exception as e:
+        # Catch other potential exceptions during the connection lifetime
+        logger.error(
+            f"An unexpected error occurred with client {websocket.client}: {e}",
+            exc_info=True,
+        )
+    finally:
+        # 3. Ensure disconnection logic is always run
+        await wsconnection_manager.disconnect(websocket)
+
+
+'''@app.get("/api/jobs")
 async def get_jobs_status():
     """API endpoint to get the current status of all jobs."""
-    return await state_manager.get_all_job_statuses()
+    return await state_manager.get_all_job_statuses()'''
 
 
 @app.post("/api/jobs/restart", response_model=RestartJobResponse)
@@ -76,6 +169,13 @@ async def restart_failed_job(payload: RestartJobRequest):
             raise HTTPException(status_code=409, detail=restart_response.message)
 
     logger.info(f"Job {payload.jobId} restarted.")
+
+    await wsconnection_manager.broadcast_json(
+        JobStateUpdate(
+            jobData=await state_manager.get_all_job_statuses(json_encoded=True)
+        ).model_dump()
+    )
+
     return restart_response
 
 
@@ -89,6 +189,12 @@ async def restart_all_permanently_failed_jobs():
         logger.info(
             f"{result.restarted_count}/{result.restarted_count+result.failed_count} jobs scheduled for restart."
         )
+        await wsconnection_manager.broadcast_json(
+            JobStateUpdate(
+                jobData=await state_manager.get_all_job_statuses(json_encoded=True)
+            ).model_dump()
+        )
+
         return result
     except Exception as e:
         logger.error(
