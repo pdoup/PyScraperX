@@ -57,51 +57,47 @@ async def main():
     logger.info("Application starting up...")
 
     # 1. Initialization
-    engine = ScraperEngine()
     scheduler = JobScheduler()
     run_interval: ResolveTime = settings.run_interval
     try:
-        # Initialize services
-        await engine.initialize_http_session()
-        logger.info("ScraperEngine HTTP session initialized.")
-
-        # Register the main scheduler job with the state manager
-        await state_manager.register_job(
-            settings.master_scheduler_id, name="Master Scraper Dispatcher"
-        )
-        # Update initial status for the main scheduler job
-        await state_manager.update_job_status(
-            settings.master_scheduler_id,
-            status=JobStatus.IDLE,
-            last_run=None,
-            next_run=None,
-            error_message=None,
-            total_runs=0,
-        )
-
-        # 2. Schedule Jobs
-        if run_interval.unit == "seconds":
-            scheduler.every_seconds(run_interval.interval).do(
-                run_all_scrapers_job, engine
+        async with ScraperEngine() as engine:
+            # Register the main scheduler job with the state manager
+            await state_manager.register_job(
+                settings.master_scheduler_id, name="Master Scraper Dispatcher"
             )
-        elif run_interval.unit == "minutes":
-            scheduler.every_minutes(run_interval.interval).do(
-                run_all_scrapers_job, engine
+            # Update initial status for the main scheduler job
+            await state_manager.update_job_status(
+                settings.master_scheduler_id,
+                status=JobStatus.IDLE,
+                last_run=None,
+                next_run=None,
+                error_message=None,
+                total_runs=0,
             )
-        elif run_interval.unit == "hours":
-            scheduler.every_hours(run_interval.interval).do(
-                run_all_scrapers_job, engine
-            )
-        else:
-            logger.error(f"Unsupported run_interval unit: {run_interval.unit}")
-            return
 
-        logger.info("Performing immediate first scrape job run...")
-        await run_all_scrapers_job(engine)
+            # 2. Schedule Jobs
+            if run_interval.unit == "seconds":
+                scheduler.every_seconds(run_interval.interval).do(
+                    run_all_scrapers_job, engine
+                )
+            elif run_interval.unit == "minutes":
+                scheduler.every_minutes(run_interval.interval).do(
+                    run_all_scrapers_job, engine
+                )
+            elif run_interval.unit == "hours":
+                scheduler.every_hours(run_interval.interval).do(
+                    run_all_scrapers_job, engine
+                )
+            else:
+                logger.error(f"Unsupported run_interval unit: {run_interval.unit}")
+                return
 
-        # 3. Run Forever
-        logger.info("WebScraper is now running. Press Ctrl+C to exit.")
-        await asyncio.Future()
+            logger.info("Performing immediate first scrape job run...")
+            await run_all_scrapers_job(engine)
+
+            # 3. Run Forever
+            logger.info("WebScraper is now running. Press Ctrl+C to exit.")
+            await asyncio.Future()
 
     except asyncio.CancelledError:
         logger.info("Shutdown signal received (asyncio.CancelledError).")
@@ -112,13 +108,9 @@ async def main():
 
     finally:
         logger.info("Shutting down services gracefully...")
-        if engine.is_initialized():
-            await engine.close()
-            logger.info("ScraperEngine HTTP session closed.")
 
         # Cancel all tasks started by the scheduler
-        for task in scheduler.get_tasks():
-            task.cancel()
+        _ = [task.cancel() for task in scheduler.get_tasks()]
 
         # Await their completion to ensure cleanup and avoid RuntimeError on exit
         await asyncio.gather(*scheduler.get_tasks(), return_exceptions=True)
