@@ -2,6 +2,8 @@ import asyncio
 import datetime
 from typing import Any, Dict, List, Optional
 
+from fastapi.encoders import jsonable_encoder
+
 from config import settings
 from models import JobStatus
 from report.job_models import JobState, RestartJobBatchResponse, RestartJobResponse
@@ -49,10 +51,18 @@ class StateManager:
             job = self._job_status_data.get(job_id)
             return job.model_copy() if job else None
 
-    async def get_all_job_statuses(self) -> List[JobState]:
+    async def get_all_job_statuses(
+        self, json_encoded: Optional[bool] = False
+    ) -> List[JobState]:
         """Returns a copy of all job states."""
         async with self._lock:
-            return [job.model_copy() for job in self._job_status_data.values()]
+            return (
+                [job.model_copy() for job in self._job_status_data.values()]
+                if not json_encoded
+                else jsonable_encoder(
+                    [job.model_copy() for job in self._job_status_data.values()]
+                )
+            )
 
     async def restart_job(self, job_id: str) -> RestartJobResponse:
         """Resets the status of a failed job so it can be run again."""
