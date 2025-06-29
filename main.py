@@ -92,6 +92,9 @@ async def main():
                 logger.error(f"Unsupported run_interval unit: {run_interval.unit}")
                 return
 
+            # Start uvicorn server
+            web_server_task = asyncio.create_task(start_web_server(), name="WebUI")
+
             logger.info("Performing immediate first scrape job run...")
             await run_all_scrapers_job(engine)
 
@@ -105,15 +108,18 @@ async def main():
         logger.critical(
             f"An unhandled error occurred in the async main loop: {e}", exc_info=True
         )
-
     finally:
         logger.info("Shutting down services gracefully...")
 
-        # Cancel all tasks started by the scheduler
+        # Cancel all tasks
         _ = [task.cancel() for task in scheduler.get_tasks()]
-
+        if web_server_task is not None and not web_server_task.cancelled():
+            web_server_task.cancel()
+            logger.info(f"Web server task '{web_server_task.get_name()}' cancelled.")
         # Await their completion to ensure cleanup and avoid RuntimeError on exit
-        await asyncio.gather(*scheduler.get_tasks(), return_exceptions=True)
+        await asyncio.gather(
+            web_server_task, *scheduler.get_tasks(), return_exceptions=True
+        )
         logger.info("All background tasks cancelled. Shutdown complete.")
 
 
@@ -123,11 +129,7 @@ if __name__ == "__main__":
     )
 
     try:
-        # Start the FastAPI web server in a separate thread.
-        start_web_server()
-        # Run the main asynchronous application
         asyncio.run(main())
-
     except KeyboardInterrupt:
         logger.info("Web scraper service stopped by user (KeyboardInterrupt).")
     except Exception as e:
