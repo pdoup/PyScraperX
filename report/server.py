@@ -117,7 +117,7 @@ async def ws_jobs(websocket: WebSocket):
     """
     await wsconnection_manager.connect(websocket)
     try:
-        logger.info(f"Sending initial state to client {websocket.client}")
+        logger.info(f"Sending initial state to client {websocket.client._asdict()}")
         await websocket.send_json(
             JobStateUpdate(
                 jobData=await state_manager.get_all_job_statuses(json_encoded=True)
@@ -137,19 +137,19 @@ async def ws_jobs(websocket: WebSocket):
                     await wsconnection_manager.unsubscribe(websocket, topic)
                 else:
                     logger.warning(
-                        f"Received unknown action from {websocket.client}: {action.value}"
+                        f"Received unknown action from {websocket.client._asdict()}: {action.value}"
                     )
             else:
                 logger.warning(
-                    f"Received unknown topic from {websocket.client}: {topic.value}"
+                    f"Received unknown topic from {websocket.client._asdict()}: {topic.value}"
                 )
 
     except WebSocketDisconnect:
-        logger.info(f"Client {websocket.client} disconnected gracefully.")
+        logger.info(f"Client {websocket.client._asdict()} disconnected gracefully.")
     except Exception as e:
         # Catch other potential exceptions during the connection lifetime
         logger.error(
-            f"An unexpected error occurred with client {websocket.client}: {e}",
+            f"An unexpected error occurred with client {websocket.client._asdict()}: {e}",
             exc_info=True,
         )
     finally:
@@ -217,8 +217,8 @@ async def restart_all_permanently_failed_jobs():
         )
 
 
-def start_web_server():
-    """Starts the FastAPI web server in a separate thread."""
+async def start_web_server():
+    """Starts the FastAPI web server in an event loop"""
     uvicorn_settings: UvicornServerSettings = settings.server
     if uvicorn_settings.workers is not None and uvicorn_settings.workers > 1:
         logger.warning(
@@ -245,20 +245,20 @@ def start_web_server():
         logger.debug(f"Passing extra Uvicorn options: {uvicorn_settings.model_extra}")
         uvicorn_config_params.update(uvicorn_settings.model_extra)
 
-    def run_uvicorn_server():
+    async def run_uvicorn_server():
         try:
             config = uvicorn.Config(**uvicorn_config_params)
             server = uvicorn.Server(config)
             logger.info(
-                f"Uvicorn Server instance created for http://{uvicorn_settings.host}:{uvicorn_settings.port}"
+                f"Uvicorn Server instance created at http://{uvicorn_settings.host}:{uvicorn_settings.port}"
             )
-            server.run()
+            await server.serve()
+        except asyncio.CancelledError:
+            logger.warning("Uvicorn server was cancelled. Shutting down gracefully...")
+            raise  # Let it propagate to allow higher-level shutdown logic
         except Exception as e:
             logger.exception(f"Uvicorn server failed to start: {e}")
+        finally:
+            logger.info("Uvicorn server shutdown complete.")
 
-    threading.Thread(
-        target=run_uvicorn_server, daemon=True, name="uvicorn_thread"
-    ).start()
-    logger.info(
-        f"Admin Web Server started on http://{uvicorn_settings.host}:{uvicorn_settings.port}"
-    )
+    await run_uvicorn_server()
