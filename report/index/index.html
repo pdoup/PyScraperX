@@ -596,6 +596,7 @@
         const reconnectInterval = {{ ws_reconnect_interval_ms }};
         const maxRetries = {{ ws_max_retries_on_disconnect }};
 
+        const defaultTopic = "all_jobs";
         let retryCount = 0;
         let socket = null;
 
@@ -616,6 +617,12 @@
 
             socket.onopen = () => {
                 console.log('WebSocket connection established.');
+                const subscriptionMessage = {
+                    action: "subscribe",
+                    topic: defaultTopic
+                };
+                socket.send(JSON.stringify(subscriptionMessage));
+                console.log("Sent subscription request for topic 'all_jobs'");
                 retryCount = 0; // Reset on success
                 updateConnectionStatus('Connected', `Live connection established to <a href="${wsUrl}" target="_blank" class="tooltip-link">${wsUrl.protocol}//${wsUrl.host}</a>`);
             };
@@ -994,4 +1001,5 @@
         });
     </script>
 </body>
+
 </html>
