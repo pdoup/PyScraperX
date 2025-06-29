@@ -1,8 +1,8 @@
 import asyncio
-from contextlib import asynccontextmanager
 import logging
 import pathlib
 import threading
+from contextlib import asynccontextmanager
 from typing import Any, Dict
 
 import uvicorn
@@ -11,8 +11,8 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from report.ws_manager import WSConnectionManager
 from config import UvicornServerSettings, settings
+from models import WSTopic, WSTopicAction
 from report.job_models import (
     JobStateUpdate,
     RestartJobBatchResponse,
@@ -20,6 +20,7 @@ from report.job_models import (
     RestartJobResponse,
 )
 from report.state_manager import state_manager
+from report.ws_manager import WSConnectionManager
 
 logger = logging.getLogger("WebScraper")
 
@@ -46,23 +47,22 @@ async def lifespan(app: FastAPI):
                 logger.info("Background task successfully cancelled.")
 
 
-async def update_broadcaster(interval_ms: float):
+async def update_broadcaster(interval_s: float):
     """
-    Periodically fetches job statuses and broadcasts them to all clients.
+    Periodically fetches job statuses and broadcasts them to clients
+    subscribed to the 'all_jobs' topic.
 
     Args:
-        interval_ms: The time to wait between broadcasts.
+        interval_s: The time to wait between broadcasts.
     """
     while True:
         try:
-            await asyncio.sleep(interval_ms)
-            logger.debug(
-                f"Broadcasting job status updates to {len(wsconnection_manager.active_connections)} clients."
-            )
-            await wsconnection_manager.broadcast_json(
+            await asyncio.sleep(interval_s)
+            await wsconnection_manager.broadcast_to_topic(
+                WSTopic.ALL_JOBS,
                 JobStateUpdate(
                     jobData=await state_manager.get_all_job_statuses(json_encoded=True)
-                ).model_dump()
+                ).model_dump(),
             )
         except asyncio.CancelledError:
             break
@@ -108,8 +108,8 @@ async def read_root(request: Request):
         )
 
 
-@app.websocket("/ws/jobs")
-async def websocket_endpoint(websocket: WebSocket):
+@app.websocket("/ws/jobs", name="All updated job statuses")
+async def ws_jobs(websocket: WebSocket):
     """
     WebSocket endpoint for real-time job status updates.
     - A new client receives the full current job list upon connection.
@@ -117,7 +117,6 @@ async def websocket_endpoint(websocket: WebSocket):
     """
     await wsconnection_manager.connect(websocket)
     try:
-        # 1. Send the initial full state to the newly connected client.
         logger.info(f"Sending initial state to client {websocket.client}")
         await websocket.send_json(
             JobStateUpdate(
@@ -126,13 +125,24 @@ async def websocket_endpoint(websocket: WebSocket):
             mode="text",
         )
 
-        # 2. Keep the connection alive.
-        # The client doesn't need to send messages, so we just wait for disconnection.
         while True:
-            # This will block until a message is received or the connection is closed.
-            await websocket.receive_text()
-            # In a two-way communication app, you would process the received text here.
-            # For this broadcast-only use case, we ignore it.
+            message = await websocket.receive_json()
+            action = WSTopicAction.from_str(message.get("action"))
+            topic = WSTopic.from_str(message.get("topic"))
+
+            if topic != WSTopic.UNKNOWN_TOPIC:
+                if action == WSTopicAction.SUBSCRIBE:
+                    await wsconnection_manager.subscribe(websocket, topic)
+                elif action == WSTopicAction.UNSUBSCRIBE:
+                    await wsconnection_manager.unsubscribe(websocket, topic)
+                else:
+                    logger.warning(
+                        f"Received unknown action from {websocket.client}: {action.value}"
+                    )
+            else:
+                logger.warning(
+                    f"Received unknown topic from {websocket.client}: {topic.value}"
+                )
 
     except WebSocketDisconnect:
         logger.info(f"Client {websocket.client} disconnected gracefully.")
@@ -143,14 +153,13 @@ async def websocket_endpoint(websocket: WebSocket):
             exc_info=True,
         )
     finally:
-        # 3. Ensure disconnection logic is always run
         await wsconnection_manager.disconnect(websocket)
 
 
-'''@app.get("/api/jobs")
+@app.get("/api/jobs", deprecated=True)
 async def get_jobs_status():
     """API endpoint to get the current status of all jobs."""
-    return await state_manager.get_all_job_statuses()'''
+    return await state_manager.get_all_job_statuses()
 
 
 @app.post("/api/jobs/restart", response_model=RestartJobResponse)
@@ -170,10 +179,11 @@ async def restart_failed_job(payload: RestartJobRequest):
 
     logger.info(f"Job {payload.jobId} restarted.")
 
-    await wsconnection_manager.broadcast_json(
+    await wsconnection_manager.broadcast_to_topic(
+        WSTopic.ALL_JOBS,
         JobStateUpdate(
             jobData=await state_manager.get_all_job_statuses(json_encoded=True)
-        ).model_dump()
+        ).model_dump(),
     )
 
     return restart_response
@@ -189,10 +199,11 @@ async def restart_all_permanently_failed_jobs():
         logger.info(
             f"{result.restarted_count}/{result.restarted_count+result.failed_count} jobs scheduled for restart."
         )
-        await wsconnection_manager.broadcast_json(
+        await wsconnection_manager.broadcast_to_topic(
+            WSTopic.ALL_JOBS,
             JobStateUpdate(
                 jobData=await state_manager.get_all_job_statuses(json_encoded=True)
-            ).model_dump()
+            ).model_dump(),
         )
 
         return result
