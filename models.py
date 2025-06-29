@@ -48,3 +48,42 @@ class JobStatus(str, Enum):
             return cls[value]
         except KeyError:
             raise ValueError(f"Unknown job status: {value}")
+
+
+@unique
+class WSTopic(str, Enum):
+
+    def _generate_next_value_(name, start, count, last_values):
+        return name.lower()
+
+    ALL_JOBS = auto()
+
+    UNKNOWN_TOPIC = auto()
+
+    @classmethod
+    def from_str(cls, value: str) -> "WSTopic":
+        """Convert from a string to a WSTopic, case-insensitive."""
+        try:
+            return cls[value.strip().upper()]
+        except KeyError:
+            return cls[WSTopic.UNKNOWN_TOPIC.upper()]
+
+
+@unique
+class WSTopicAction(str, Enum):
+
+    def _generate_next_value_(name, start, count, last_values):
+        return name.lower()
+
+    SUBSCRIBE = auto()
+    UNSUBSCRIBE = auto()
+
+    UNKNOWN_ACTION = auto()
+
+    @classmethod
+    def from_str(cls, value: str) -> "WSTopicAction":
+        """Convert from a string to a WSTopicAction, case-insensitive."""
+        try:
+            return cls[value.strip().upper()]
+        except KeyError:
+            return cls[WSTopicAction.UNKNOWN_ACTION.upper()]
