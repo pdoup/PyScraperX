@@ -39,6 +39,9 @@
             --text-tertiary: #6b7280;
             --input-bg: rgba(55, 65, 81, 0.5);
             --status-permanently-failed-glow: rgba(239, 68, 68, 0.7);
+            --status-connecting: rgb(250, 204, 21);
+            --status-connected: rgb(16, 185, 129);
+            --status-disconnected: rgb(239, 68, 68);
         }
 
         :root {
@@ -57,6 +60,9 @@
             --status-initialized-bg: rgba(234, 179, 8, 0.1);
             --status-idle: #6b7280;
             --status-idle-bg: rgba(107, 114, 128, 0.1);
+            --status-connecting: #e7b317;
+            --status-connected: #16996d;
+            --status-disconnected: #ef4444;
         }
 
         body {
@@ -136,9 +142,11 @@
             0% {
                 box-shadow: 0 0 0 0 var(--status-permanently-failed-glow);
             }
+
             70% {
                 box-shadow: 0 0 0 4px rgba(0, 0, 0, 0);
             }
+
             100% {
                 box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
             }
@@ -167,21 +175,41 @@
             }
         }
 
-        .job-status-pulse {
+        .job-status-pulse,
+        .ws-connection-pulse {
             width: 10px;
             height: 10px;
             border-radius: 50%;
             animation: pulse-glow 1.5s ease-out infinite;
         }
 
-        .job-status-pulse.green {
+        .job-status-pulse.green,
+        .ws-connection-pulse.green {
             background-color: var(--status-success);
             --pulse-glow-color: rgba(16, 185, 129, 0.7);
         }
 
-        .job-status-pulse.red {
+        .job-status-pulse.red,
+        .ws-connection-pulse.red {
             background-color: var(--status-failed);
             --pulse-glow-color: rgba(239, 68, 68, 0.7);
+        }
+
+        .ws-connection-pulse.yellow {
+            background-color: var(--status-connecting);
+            --pulse-glow-color: rgb(248, 215, 70);
+        }
+
+        #ws-connection-text[data-status="Connected"] {
+            color: var(--status-connected);
+        }
+
+        #ws-connection-text[data-status="Disconnected"] {
+            color: var(--status-disconnected);
+        }
+
+        #ws-connection-text[data-status="Connecting"] {
+            color: var(--status-connecting);
         }
 
         @keyframes pulse-glow {
@@ -292,6 +320,59 @@
             pointer-events: none;
         }
 
+        .ws-connection-status-container {
+            position: relative;
+        }
+
+        .ws-connection-status-container .ws-tooltip {
+            visibility: hidden;
+            opacity: 0;
+            transition: visibility 0.1s;
+            position: absolute;
+            top: 110%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--text-primary);
+            color: var(--bg-primary);
+            padding: 3px 8px;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            z-index: 20;
+            opacity: 0.9;
+            pointer-events: inherit;
+        }
+
+        .ws-connection-status-container:hover .ws-tooltip {
+            visibility: visible;
+            opacity: 0.65;
+        }
+
+        .ws-connection-status-container .ws-tooltip::before {
+            content: '';
+            position: absolute;
+            bottom: 80%;
+            left: 50%;
+            transform: translateX(-50%) rotate(45deg);
+            width: 10px;
+            height: 10px;
+            background-color: var(--text-primary);
+            z-index: 19;
+            pointer-events: inherit;
+        }
+
+        .ws-tooltip .tooltip-link {
+            color: var(--accent-primary);
+            text-decoration: underline;
+            font-weight: bold;
+        }
+
+        .ws-tooltip .tooltip-link:hover {
+            text-decoration: none;
+            text-decoration-thickness: initial;
+            opacity: 0.8;
+        }
+
         #theme-toggle .moon-icon {
             display: none;
         }
@@ -311,7 +392,6 @@
         .table-row-separator tr {
             border-bottom: 1px solid var(--border-color);
         }
-
     </style>
 </head>
 
@@ -387,6 +467,13 @@
                     <div id="job-status-dot" class="job-status-pulse green"></div>
                     <span id="job-status-text" class="text-sm font-semibold text-secondary ml-2 whitespace-nowrap">0/0
                         Running</span>
+                </div>
+                <div id="ws-connection-status-container"
+                    class="relative flex items-center p-2 rounded-lg border border-border-color bg-input-bg shadow-sm ws-connection-status-container">
+                    <div id="ws-connection-dot" class="ws-connection-pulse green"></div>
+                    <span id="ws-connection-text" data-status="Connecting"
+                        class="text-sm font-semibold text-secondary ml-2 whitespace-nowrap">Connecting</span>
+                    <span id="ws-connection-tooltip" class="ws-tooltip"></span>
                 </div>
                 <div class="relative">
                     <input type="text" placeholder="Search tasks..."
@@ -494,11 +581,84 @@
         const themeToggleButton = document.getElementById('theme-toggle');
         const jobStatusDot = document.getElementById('job-status-dot');
         const jobStatusText = document.getElementById('job-status-text');
+        const wsConnectionText = document.getElementById('ws-connection-text');
+        const wsStatusDot = document.getElementById('ws-connection-dot');
+        const wsConnectionTooltip = document.getElementById('ws-connection-tooltip');
         const restartAllButton = document.getElementById('restart-all-button');
 
         // State variables
         let jobsData = {};
         let expandedJobIds = new Set();
+
+        // WS logic
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = new URL(`${wsProtocol}//${window.location.host}/ws/jobs`);
+        const reconnectInterval = {{ ws_reconnect_interval_ms }};
+        const maxRetries = {{ ws_max_retries_on_disconnect }};
+
+        let retryCount = 0;
+        let socket = null;
+
+        function connectWebSocket() {
+            if (retryCount >= maxRetries) {
+                console.error(`WebSocket: Max retries (${maxRetries}) reached. Giving up.`);
+                updateConnectionStatus('Disconnected', 'Connection failed. Manual reload required.');
+                socket = null;
+                jobsData = {};
+                clearTable();
+                return;
+            }
+
+            console.log(`Attempting to connect to WebSocket (attempt ${retryCount + 1}/${maxRetries})...`);
+            updateConnectionStatus('Connecting', 'Connecting to real-time WS server...');
+
+            socket = new WebSocket(wsUrl);
+
+            socket.onopen = () => {
+                console.log('WebSocket connection established.');
+                retryCount = 0; // Reset on success
+                updateConnectionStatus('Connected', `Live connection established to <a href="${wsUrl}" target="_blank" class="tooltip-link">${wsUrl.protocol}//${wsUrl.host}</a>`);
+            };
+
+            socket.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    jobsData = message.jobData;
+                    renderTable();
+                    updateJobStatusTracker();
+                    lastUpdatedSpan.textContent = formatTimestamp(new Date().toISOString());
+                } catch (error) {
+                    console.error('Error parsing message from server:', error);
+                }
+            };
+
+            socket.onclose = () => {
+                retryCount++;
+                console.warn(`WebSocket closed. Retrying in ${reconnectInterval / 1000}s (attempt ${retryCount}/${maxRetries})...`);
+                updateConnectionStatus('Disconnected', `Connection lost. Retrying attempt ${retryCount}/${maxRetries}...`);
+
+                setTimeout(connectWebSocket, reconnectInterval);
+            };
+
+            socket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                socket.close(); // Triggers onclose
+            };
+        }
+
+        function updateConnectionStatus(status, message) {
+            const newStatus = String(status);
+            wsConnectionText.textContent = newStatus;
+            wsConnectionTooltip.innerHTML = message;
+            wsConnectionText.setAttribute('data-status', newStatus);
+            if (newStatus === "Connected") {
+                wsStatusDot.className = "ws-connection-pulse green"
+            } else if (newStatus === "Disconnected") {
+                wsStatusDot.className = "ws-connection-pulse red"
+            } else {
+                wsStatusDot.className = "ws-connection-pulse yellow"
+            }
+        }
 
         function formatTimestamp(isoString) {
             if (!isoString) return 'N/A';
@@ -537,6 +697,14 @@
             } else {
                 restartAllButton.classList.add('hidden');
             }
+        }
+
+        function clearTable() {
+            jobStatusText.textContent = `0/0 Running`;
+            jobStatusDot.className = 'job-status-pulse red';
+            tableBody.innerHTML = `<tr><td colspan="6" class="text-center p-12 text-secondary">No jobs match the current filters.</td></tr>`;
+            restartAllButton.disabled = true;
+            restartAllButton.dataset.tooltip = "No jobs to display, or no jobs match filters.";
         }
 
         function renderTable() {
@@ -669,9 +837,6 @@
                                 }
                                 return res.json();
                             })
-                            .then(data => {
-                                updateDashboard();
-                            })
                             .catch(err => {
                                 console.error('Restart failed:', err);
                                 button.disabled = false;
@@ -795,7 +960,7 @@
                         setTimeout(() => {
                             button.innerHTML = originalContent;
                             button.disabled = false;
-                            updateDashboard();
+                            // updateDashboard();
                         }, 800);
                     }, 350);
                 })
@@ -808,7 +973,6 @@
 
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', () => {
-            const updateInterval = {{ update_interval }};
             filterTextInput.addEventListener('input', renderTable);
             filterStatusSelect.addEventListener('change', () => {
                 renderTable();
@@ -824,11 +988,10 @@
                 applyTheme(prefersDark ? 'dark' : 'light');
             }
 
-            updateDashboard();
+            renderTable()
             updateHeaderButtons();
-            setInterval(updateDashboard, updateInterval);
+            connectWebSocket();
         });
     </script>
 </body>
-
 </html>
