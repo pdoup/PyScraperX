@@ -627,15 +627,29 @@
                 updateConnectionStatus('Connected', `Live connection established to <a href="${wsUrl}" target="_blank" class="tooltip-link">${wsUrl.protocol}//${wsUrl.host}</a>`);
             };
 
-            socket.onmessage = (event) => {
+            socket.onmessage = async (event) => {
                 try {
-                    const message = JSON.parse(event.data);
+                    let message;
+                    if (event.data instanceof ArrayBuffer) {
+                        const decoder = new TextDecoder('utf-8');
+                        const jsonString = decoder.decode(event.data);
+                        message = JSON.parse(jsonString);
+
+                    } else if (event.data instanceof Blob) {
+                        const jsonString = await event.data.text();
+                        message = JSON.parse(jsonString);
+
+                    } else {
+                        message = JSON.parse(event.data);
+                    }
                     jobsData = message.jobData;
                     renderTable();
                     updateJobStatusTracker();
                     lastUpdatedSpan.textContent = formatTimestamp(new Date().toISOString());
+
                 } catch (error) {
-                    console.error('Error parsing message from server:', error);
+                    console.error('Error processing message from server:', error);
+                    console.error('Raw data received:', event.data);
                 }
             };
 
