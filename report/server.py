@@ -58,7 +58,7 @@ async def update_broadcaster(interval_s: float):
     while True:
         try:
             await asyncio.sleep(interval_s)
-            await wsconnection_manager.broadcast_to_topic(
+            await wsconnection_manager.broadcast_to_topic_binary(
                 WSTopic.ALL_JOBS,
                 JobStateUpdate(
                     jobData=await state_manager.get_all_job_statuses(json_encoded=True)
@@ -179,7 +179,7 @@ async def restart_failed_job(payload: RestartJobRequest):
 
     logger.info(f"Job {payload.jobId} restarted.")
 
-    await wsconnection_manager.broadcast_to_topic(
+    await wsconnection_manager.broadcast_to_topic_binary(
         WSTopic.ALL_JOBS,
         JobStateUpdate(
             jobData=await state_manager.get_all_job_statuses(json_encoded=True)
@@ -199,7 +199,7 @@ async def restart_all_permanently_failed_jobs():
         logger.info(
             f"{result.restarted_count}/{result.restarted_count+result.failed_count} jobs scheduled for restart."
         )
-        await wsconnection_manager.broadcast_to_topic(
+        await wsconnection_manager.broadcast_to_topic_binary(
             WSTopic.ALL_JOBS,
             JobStateUpdate(
                 jobData=await state_manager.get_all_job_statuses(json_encoded=True)
