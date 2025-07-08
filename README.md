@@ -34,7 +34,7 @@ The Admin UI provides a comprehensive, real-time view of all scraping jobs:
 
  
 
-![Dashboard Overview](assets/dashboard.png)
+![Dashboard Overview](assets/dashboard_v2.png)
 
  
 
